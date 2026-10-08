@@ -43,3 +43,16 @@ are not implemented yet.
 
 Assignment emails with PRANO / REFUZO actions are still pending.
 Concurrent assignment protection is unresolved.
+
+## Reservation coordination
+- Selected Neon PostgreSQL for reservation coordination,
+  with trainer approval. Airtable remains the central database.
+- Verified the n8n connection to Neon.
+- Verified that a reserved driver cannot be reserved
+  for another trip.
+- Verified that a reserved trip cannot receive
+  a second driver reservation.
+- Removed the synthetic reservation and confirmed zero rows.
+
+These tests ran sequentially. Concurrent execution,
+workflow integration and recovery are still pending.
