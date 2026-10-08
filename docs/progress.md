@@ -31,3 +31,15 @@ Connect n8n Cloud to Airtable and test database access.
 
 Driver assignment, notifications and duplicate-request protection
 are not implemented yet.
+
+## Assignment and notification tests
+- Linked a test trip to an available driver.
+- Updated the driver to I ZËNË and the trip to CAKTUAR.
+- Verified Gmail sending with a separate test workflow;
+  the test email arrived.
+- Tested a request while no driver was available:
+  the new trip remained KËRKUAR without a driver,
+  and the customer form displayed an availability message.
+
+Assignment emails with PRANO / REFUZO actions are still pending.
+Concurrent assignment protection is unresolved.
