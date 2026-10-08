@@ -20,3 +20,14 @@ The automated completion workflow is still pending.
 
 ### Next step
 Connect n8n Cloud to Airtable and test database access.
+
+## Request workflow progress
+
+- Tested the customer form with all six required fields.
+- Tested phone normalization and rejection of an invalid phone.
+- Verified that invalid input displays an error message.
+- Verified existing-customer lookup and routing.
+- Created a test trip with status KËRKUAR and a linked customer.
+
+Driver assignment, notifications and duplicate-request protection
+are not implemented yet.
