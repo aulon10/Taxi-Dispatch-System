@@ -1,0 +1,1351 @@
+{
+  "name": "03 - Fillimi i udhëtimit",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "taxi-trip-start-confirm",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "12873954-85ce-40bc-bbca-ec1806458b40",
+      "name": "Hap konfirmimin e fillimit",
+      "webhookId": "8e645897-867a-482c-a18e-5997c274078a"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taxi-trip-start-response",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        -160
+      ],
+      "id": "f09d9cbe-ed5d-4e69-8d2f-12d8391aa95c",
+      "name": "Merr konfirmimin e fillimit",
+      "webhookId": "5a1838a3-a14b-4fde-a542-5154b017053c"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nconst isPost =\n  $('Merr konfirmimin e fillimit').isExecuted;\n\nconst token = isPost\n  ? $json.body?.token\n  : $json.query?.token;\n\nconst validTokenFormat =\n  typeof token === 'string' &&\n  /^[a-f0-9]{64}$/.test(token);\n\nconst decision = isPost\n  ? $json.body?.decision\n  : null;\n\nconst validDecision =\n  !isPost || ['PO', 'JO'].includes(decision);\n\nreturn {\n  json: {\n    isPost,\n    validRequest: validTokenFormat && validDecision,\n    decision: validDecision ? decision : null,\n    token: validTokenFormat ? token : null,\n    tokenHash: validTokenFormat\n      ? crypto.createHash('sha256').update(token).digest('hex')\n      : null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        -80
+      ],
+      "id": "78a12421-215e-44e6-a000-80a0646e5b62",
+      "name": "Kontrollo kërkesën e fillimit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "22154ae1-2667-4b8f-afbe-273946e6f8a2",
+              "leftValue": "={{ $json.validRequest }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        368,
+        -80
+      ],
+      "id": "13fcd228-a2ff-408a-b1d7-12d6c8d7188f",
+      "name": "Kërkesa e fillimit është e vlefshme?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Kërkesa nuk është e vlefshme. Hape linkun nga email-i i udhëtimit.",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        544,
+        32
+      ],
+      "id": "313d479a-9733-4b3a-bf1b-566f75c2ea7d",
+      "name": "Refuzo kërkesën e gabuar të fillimit"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH matched_token AS (\n  SELECT\n    t.assignment_id,\n    t.trip_id,\n    t.driver_id,\n    t.action\n  FROM action_tokens t\n  JOIN driver_reservations r\n    ON r.assignment_id = t.assignment_id\n   AND r.trip_id = t.trip_id\n   AND r.driver_id = t.driver_id\n  WHERE t.token_hash = $1\n    AND t.action = 'FILLIM'\n    AND t.expires_at > NOW()\n    AND t.used_at IS NULL\n    AND EXISTS (\n      SELECT 1\n      FROM dispatch_operations o\n      WHERE o.operation_key = t.assignment_id || ':decision'\n        AND o.assignment_id = t.assignment_id\n        AND o.trip_id = t.trip_id\n        AND o.driver_id = t.driver_id\n        AND o.action = 'PRANO'\n        AND o.status = 'completed'\n    )\n)\nSELECT\n  EXISTS (\n    SELECT 1 FROM matched_token\n  ) AS valid_token,\n  (\n    SELECT row_to_json(t)\n    FROM matched_token t\n    LIMIT 1\n  ) AS token_data;",
+        "options": {
+          "queryReplacement": "={{ [ $('Kontrollo kërkesën e fillimit').first().json.tokenHash ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        544,
+        -192
+      ],
+      "id": "c2425b98-734a-4a53-87e9-cdc68b628169",
+      "name": "Verifiko tokenin e fillimit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "639fd523-8e4c-4914-9042-ea778ba2c79c",
+              "leftValue": "={{ $json.valid_token }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        736,
+        -192
+      ],
+      "id": "b9146d10-a21c-45c3-a51c-e28dc2647a3c",
+      "name": "Tokeni i fillimit është i vlefshëm?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Kjo lidhje nuk është më e vlefshme për fillimin e udhëtimit.",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1088,
+        -80
+      ],
+      "id": "1ccb54d9-ddb0-4676-8124-561d8e371274",
+      "name": "Refuzo lidhjen e fillimit"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "id": "={{ $('Verifiko tokenin e fillimit').first().json.token_data.trip_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        -304
+      ],
+      "id": "1f96a0e3-686c-4113-acad-00823a32076e",
+      "name": "Lexo udhëtimin për fillim",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "id": "={{ $('Verifiko tokenin e fillimit').first().json.token_data.driver_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1088,
+        -304
+      ],
+      "id": "fb75da31-758f-4525-bb54-2ac309ae8ba9",
+      "name": "Lexo shoferin për fillim",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "02654b77-9bed-4afa-b395-ee0d6df6195e",
+              "leftValue": "={{ (() => {\n  const tripRecord =\n    $('Lexo udhëtimin për fillim').first().json;\n  const trip = tripRecord.fields ?? tripRecord;\n  const driver = $json.fields ?? $json;\n  const token =\n    $('Verifiko tokenin e fillimit').first().json.token_data;\n\n  return tripRecord.id === token.trip_id\n    && $json.id === token.driver_id\n    && trip.Statusi === 'PRANUAR'\n    && Array.isArray(trip.Shoferi)\n    && trip.Shoferi.length === 1\n    && trip.Shoferi[0] === token.driver_id\n    && driver.Statusi === 'I ZËNË';\n})() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1280,
+        -304
+      ],
+      "id": "389ce9d0-1554-4f5b-b5e2-86c150e4717c",
+      "name": "Udhëtimi mund të fillojë?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "95c0c9cd-fbdd-486e-bee7-7a6ffdad420e",
+              "leftValue": "={{ $('Kontrollo kërkesën e fillimit').first().json.isPost }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1456,
+        -416
+      ],
+      "id": "7e9f2585-a36e-4a9e-97b8-85ca57ae36e4",
+      "name": "Është konfirmim i fillimit me POST?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ (() => {\n  const record = $('Lexo udhëtimin për fillim').first().json;\n  const trip = record.fields ?? record;\n  const request = $('Kontrollo kërkesën e fillimit').first().json;\n\n  const escape = value => String(value ?? '').replace(\n    /[&<>\"']/g,\n    char => ({\n      '&': '&amp;',\n      '<': '&lt;',\n      '>': '&gt;',\n      '\"': '&quot;',\n      \"'\": '&#39;'\n    }[char])\n  );\n\n  return `<!doctype html>\n<html lang=\"sq\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Fillimi i udhëtimit</title>\n</head>\n<body style=\"font-family:Arial,sans-serif;max-width:520px;margin:40px auto;padding:20px\">\n  <h2>A e ke filluar udhëtimin?</h2>\n  <p>Nisja: ${escape(trip['Lokacioni i marrjes'])}</p>\n  <p>Destinacioni: ${escape(trip.Destinacioni)}</p>\n  <form method=\"POST\"\n    action=\"https://aulon10.app.n8n.cloud/webhook-test/taxi-trip-start-response\">\n    <input type=\"hidden\" name=\"token\" value=\"${escape(request.token)}\">\n    <button type=\"submit\" name=\"decision\" value=\"PO\">PO, e kam filluar</button>\n    <button type=\"submit\" name=\"decision\" value=\"JO\">JO, ende jo</button>\n  </form>\n</body>\n</html>`;\n})() }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/html; charset=utf-8"
+              }
+            ]
+          }
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1616,
+        -304
+      ],
+      "id": "78e75f53-0376-4b3d-82b4-5a95ca88aeee",
+      "name": "Shfaq konfirmimin e fillimit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "8cc084b7-d4c1-4b09-b499-0913bce58ca0",
+              "leftValue": "={{ $('Kontrollo kërkesën e fillimit').first().json.decision }}",
+              "rightValue": "PO",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1616,
+        -528
+      ],
+      "id": "22e936dd-86fa-4f4f-a5c0-94e91c0f03f1",
+      "name": "Shoferi konfirmoi fillimin?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Në rregull. Fillimi nuk u regjistrua. Hape përsëri linkun kur ta fillosh udhëtimin.",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1840,
+        -432
+      ],
+      "id": "c3a5cc92-f3f0-4249-879c-12a7f9b2705b",
+      "name": "Kthe përgjigjen JO për fillimin"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH claimed_operation AS (\n  INSERT INTO dispatch_operations (\n    operation_key,\n    trip_id,\n    assignment_id,\n    driver_id,\n    action,\n    execution_id\n  )\n  SELECT\n    t.assignment_id || ':start',\n    t.trip_id,\n    t.assignment_id,\n    t.driver_id,\n    'FILLIM',\n    $2\n  FROM action_tokens t\n  JOIN driver_reservations r\n    ON r.assignment_id = t.assignment_id\n   AND r.trip_id = t.trip_id\n   AND r.driver_id = t.driver_id\n  WHERE t.token_hash = $1\n    AND t.action = 'FILLIM'\n    AND t.expires_at > NOW()\n    AND t.used_at IS NULL\n    AND EXISTS (\n      SELECT 1\n      FROM dispatch_operations accepted\n      WHERE accepted.operation_key =\n            t.assignment_id || ':decision'\n        AND accepted.trip_id = t.trip_id\n        AND accepted.assignment_id = t.assignment_id\n        AND accepted.driver_id = t.driver_id\n        AND accepted.action = 'PRANO'\n        AND accepted.status = 'completed'\n    )\n  ON CONFLICT DO NOTHING\n  RETURNING *\n)\nSELECT\n  EXISTS (\n    SELECT 1 FROM claimed_operation\n  ) AS claimed,\n  (\n    SELECT row_to_json(o)\n    FROM claimed_operation o\n  ) AS operation;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Kontrollo kërkesën e fillimit').first().json.tokenHash,\n  $execution.id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1840,
+        -608
+      ],
+      "id": "2aa3cf0e-bc0f-4590-9503-1d1a92571fcb",
+      "name": "Rezervo përpunimin e fillimit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "dbd7f4db-9ade-4183-bc40-d9f356a67931",
+              "leftValue": "={{ $json.claimed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2096,
+        -816
+      ],
+      "id": "3d49e151-fcd4-405a-aee3-2f1719623079",
+      "name": "Fillimi u rezervua?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Rezervo përpunimin e fillimit').first().json.operation.trip_id }}",
+            "Statusi": "NË UDHËTIM ",
+            "Data e fillimit": "={{ $('Rezervo përpunimin e fillimit').first().json.operation.created_at }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Udhëtimi",
+              "displayName": "Udhëtimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "KËRKUAR",
+                  "value": "KËRKUAR"
+                },
+                {
+                  "name": "CAKTUAR",
+                  "value": "CAKTUAR"
+                },
+                {
+                  "name": "PRANUAR",
+                  "value": "PRANUAR"
+                },
+                {
+                  "name": "NË UDHËTIM ",
+                  "value": "NË UDHËTIM "
+                },
+                {
+                  "name": "REFUZUAR",
+                  "value": "REFUZUAR"
+                },
+                {
+                  "name": "PËRFUNDUAR",
+                  "value": "PËRFUNDUAR"
+                },
+                {
+                  "name": "ANULUAR",
+                  "value": "ANULUAR"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Klienti",
+              "displayName": "Klienti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Shoferi",
+              "displayName": "Shoferi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Lokacioni i marrjes",
+              "displayName": "Lokacioni i marrjes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Destinacioni",
+              "displayName": "Destinacioni",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Qyteti",
+              "displayName": "Qyteti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Prishtinë",
+                  "value": "Prishtinë"
+                },
+                {
+                  "name": "Prizren",
+                  "value": "Prizren"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Data e kërkesës",
+              "displayName": "Data e kërkesës",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Data e fillimit",
+              "displayName": "Data e fillimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e përfundimit",
+              "displayName": "Data e përfundimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Çmimi",
+              "displayName": "Çmimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "I përfunduar",
+              "displayName": "I përfunduar",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Caktimet",
+              "displayName": "Caktimet",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2320,
+        -912
+      ],
+      "id": "632b1774-7891-48ab-bfa6-8d46cd468ee5",
+      "name": "Regjistro fillimin e udhëtimit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Rezervo përpunimin e fillimit').first().json.operation.driver_id }}",
+            "Statusi": "NË UDHËTIM"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Emri i plotë",
+              "displayName": "Emri i plotë",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "I LIRË",
+                  "value": "I LIRË"
+                },
+                {
+                  "name": "I ZËNË",
+                  "value": "I ZËNË"
+                },
+                {
+                  "name": "NË UDHËTIM",
+                  "value": "NË UDHËTIM"
+                },
+                {
+                  "name": "OFFLINE",
+                  "value": "OFFLINE"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Numri i telefonit",
+              "displayName": "Numri i telefonit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Qyteti",
+              "displayName": "Qyteti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Prishtinë",
+                  "value": "Prishtinë"
+                },
+                {
+                  "name": "Prizren",
+                  "value": "Prizren"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Makina",
+              "displayName": "Makina",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Targa",
+              "displayName": "Targa",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Udhëtimet",
+              "displayName": "Udhëtimet",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Caktimet",
+              "displayName": "Caktimet",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2480,
+        -912
+      ],
+      "id": "8fdd9caa-7ae5-4af6-9dbd-e48e907e205d",
+      "name": "Shëno shoferin në udhëtim",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH finished_operation AS (\n  UPDATE dispatch_operations o\n  SET\n    status = 'completed',\n    completed_at = NOW()\n  WHERE o.operation_key = $1\n    AND o.execution_id = $2\n    AND o.action = 'FILLIM'\n    AND o.status = 'processing'\n    AND EXISTS (\n      SELECT 1\n      FROM driver_reservations r\n      WHERE r.assignment_id = o.assignment_id\n        AND r.trip_id = o.trip_id\n        AND r.driver_id = o.driver_id\n    )\n  RETURNING\n    o.assignment_id,\n    o.trip_id,\n    o.driver_id\n),\ninvalidated_tokens AS (\n  UPDATE action_tokens t\n  SET used_at = NOW()\n  FROM finished_operation o\n  WHERE t.assignment_id = o.assignment_id\n    AND t.trip_id = o.trip_id\n    AND t.driver_id = o.driver_id\n    AND t.action = 'FILLIM'\n    AND t.used_at IS NULL\n  RETURNING t.token_hash\n)\nSELECT\n  (\n    SELECT COUNT(*)::integer\n    FROM finished_operation\n  ) AS completed_count,\n  (\n    SELECT COUNT(*)::integer\n    FROM invalidated_tokens\n  ) AS invalidated_tokens_count;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Rezervo përpunimin e fillimit').first().json.operation.operation_key,\n  $execution.id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2656,
+        -912
+      ],
+      "id": "f98804a8-502e-4694-90d2-c67b90a7a988",
+      "name": "Përfundo përpunimin e fillimit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "3619714b-3f86-4bd2-a609-eadd3a4e98b5",
+              "leftValue": "={{ $json.completed_count }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2832,
+        -912
+      ],
+      "id": "a4eec4ce-c5bd-4c80-8f87-ccc5b5a2270e",
+      "name": "Fillimi u përfundua?"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Përpunimi i fillimit nuk u përfundua. Kontakto dispeçerin.",
+        "options": {
+          "responseCode": 409
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2992,
+        -800
+      ],
+      "id": "fedfec18-7ca9-4538-a800-7e7b02181f1f",
+      "name": "Njofto pengesën në fillim"
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "Fillimi u regjistrua. Udhëtimi është në vazhdim.",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        3712,
+        -1024
+      ],
+      "id": "2e465000-cf74-4466-ad43-8c74cbd2824e",
+      "name": "Shfaq rezultatin e fillimit"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH eligible_reservation AS (\n  SELECT r.*\n  FROM driver_reservations r\n  JOIN dispatch_operations o\n    ON o.assignment_id = r.assignment_id\n   AND o.trip_id = r.trip_id\n   AND o.driver_id = r.driver_id\n  WHERE o.operation_key = $1\n    AND o.execution_id = $2\n    AND o.action = 'FILLIM'\n    AND o.status = 'completed'\n),\ngenerated_token AS MATERIALIZED (\n  SELECT\n    assignment_id,\n    trip_id,\n    driver_id,\n    encode(gen_random_bytes(32), 'hex') AS token,\n    NOW() + INTERVAL '24 hours' AS expires_at\n  FROM eligible_reservation\n),\nstored_token AS (\n  INSERT INTO action_tokens (\n    token_hash,\n    assignment_id,\n    trip_id,\n    driver_id,\n    action,\n    expires_at\n  )\n  SELECT\n    encode(digest(token, 'sha256'), 'hex'),\n    assignment_id,\n    trip_id,\n    driver_id,\n    'PERFUNDIM',\n    expires_at\n  FROM generated_token\n  RETURNING token_hash\n)\nSELECT\n  COUNT(*)::integer AS tokens_created,\n  MAX(g.token) AS finish_token,\n  MAX(g.expires_at) AS expires_at\nFROM generated_token g\nJOIN stored_token s\n  ON s.token_hash =\n     encode(digest(g.token, 'sha256'), 'hex');",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Rezervo përpunimin e fillimit').first().json.operation.operation_key,\n  $execution.id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2992,
+        -1024
+      ],
+      "id": "e6a46ddc-3a46-4e17-b717-091e63732498",
+      "name": "Krijo tokenin e përfundimit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "id": "={{ $('Rezervo përpunimin e fillimit').first().json.operation.driver_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        3168,
+        -1024
+      ],
+      "id": "5fc3ad88-aec1-46ba-bad6-d270946a1bf9",
+      "name": "Lexo shoferin për linkun e përfundimit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tokens = $('Krijo tokenin e përfundimit').first().json;\nconst driverRecord = $input.first().json;\nconst driver = driverRecord.fields ?? driverRecord;\n\nconst tripRecord = $('Lexo udhëtimin për fillim').first().json;\nconst trip = tripRecord.fields ?? tripRecord;\n\nif (\n  tokens.tokens_created !== 1 ||\n  typeof tokens.finish_token !== 'string' ||\n  !/^[a-f0-9]{64}$/.test(tokens.finish_token)\n) {\n  throw new Error('Tokeni i përfundimit nuk u krijua.');\n}\n\nfunction required(value, label) {\n  const text = String(value ?? '').trim();\n  if (!text) {\n    throw new Error(`Mungon: ${label}`);\n  }\n  return text;\n}\n\nconst to = required(driver.Email, 'email-i i shoferit');\nconst name = required(driver['Emri i plotë'], 'emri i shoferit');\nconst pickup = required(trip['Lokacioni i marrjes'], 'nisja');\nconst destination = required(trip.Destinacioni, 'destinacioni');\n\nconst finishUrl =\n  'https://aulon10.app.n8n.cloud/webhook-test/taxi-trip-finish-confirm'\n  + '?token=' + tokens.finish_token;\n\nreturn [{\n  json: {\n    to,\n    subject: 'Konfirmimi i përfundimit të udhëtimit',\n    message: [\n      `Përshëndetje ${name},`,\n      '',\n      'Fillimi i udhëtimit u regjistrua.',\n      `Nisja: ${pickup}`,\n      `Destinacioni: ${destination}`,\n      '',\n      'Kur ta përfundosh udhëtimin, hape këtë link dhe zgjidh PO:',\n      finishUrl,\n      '',\n      'Nëse ende je në udhëtim, zgjidh JO.'\n    ].join('\\n')\n  },\n  pairedItem: { item: 0 }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3360,
+        -1024
+      ],
+      "id": "efb49c0a-5147-4647-8cac-5720c64f8b57",
+      "name": "Përgatit njoftimin e përfundimit"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Përgatit njoftimin e përfundimit').first().json.to }}",
+        "subject": "={{ $('Përgatit njoftimin e përfundimit').first().json.subject }}",
+        "emailType": "text",
+        "message": "={{ $('Përgatit njoftimin e përfundimit').first().json.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3536,
+        -1024
+      ],
+      "id": "55382112-e986-48fb-abe4-b8017504d623",
+      "name": "Dërgo linkun e përfundimit",
+      "webhookId": "fbe15099-b5a0-4007-93f7-9d4e762b202b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "K6LW9H2NlJrGHInV",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Merr konfirmimin e fillimit": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo kërkesën e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hap konfirmimin e fillimit": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo kërkesën e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo kërkesën e fillimit": {
+      "main": [
+        [
+          {
+            "node": "Kërkesa e fillimit është e vlefshme?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërkesa e fillimit është e vlefshme?": {
+      "main": [
+        [
+          {
+            "node": "Verifiko tokenin e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo kërkesën e gabuar të fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifiko tokenin e fillimit": {
+      "main": [
+        [
+          {
+            "node": "Tokeni i fillimit është i vlefshëm?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tokeni i fillimit është i vlefshëm?": {
+      "main": [
+        [
+          {
+            "node": "Lexo udhëtimin për fillim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo lidhjen e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo udhëtimin për fillim": {
+      "main": [
+        [
+          {
+            "node": "Lexo shoferin për fillim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo shoferin për fillim": {
+      "main": [
+        [
+          {
+            "node": "Udhëtimi mund të fillojë?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Udhëtimi mund të fillojë?": {
+      "main": [
+        [
+          {
+            "node": "Është konfirmim i fillimit me POST?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo lidhjen e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Është konfirmim i fillimit me POST?": {
+      "main": [
+        [
+          {
+            "node": "Shoferi konfirmoi fillimin?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shfaq konfirmimin e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shoferi konfirmoi fillimin?": {
+      "main": [
+        [
+          {
+            "node": "Rezervo përpunimin e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kthe përgjigjen JO për fillimin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rezervo përpunimin e fillimit": {
+      "main": [
+        [
+          {
+            "node": "Fillimi u rezervua?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fillimi u rezervua?": {
+      "main": [
+        [
+          {
+            "node": "Regjistro fillimin e udhëtimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo lidhjen e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regjistro fillimin e udhëtimit": {
+      "main": [
+        [
+          {
+            "node": "Shëno shoferin në udhëtim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shëno shoferin në udhëtim": {
+      "main": [
+        [
+          {
+            "node": "Përfundo përpunimin e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përfundo përpunimin e fillimit": {
+      "main": [
+        [
+          {
+            "node": "Fillimi u përfundua?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fillimi u përfundua?": {
+      "main": [
+        [
+          {
+            "node": "Krijo tokenin e përfundimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto pengesën në fillim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Krijo tokenin e përfundimit": {
+      "main": [
+        [
+          {
+            "node": "Lexo shoferin për linkun e përfundimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo shoferin për linkun e përfundimit": {
+      "main": [
+        [
+          {
+            "node": "Përgatit njoftimin e përfundimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit njoftimin e përfundimit": {
+      "main": [
+        [
+          {
+            "node": "Dërgo linkun e përfundimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dërgo linkun e përfundimit": {
+      "main": [
+        [
+          {
+            "node": "Shfaq rezultatin e fillimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "b063a0fe-95c8-4a28-8b91-58f173e4f79b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"
+  },
+  "nodeGroups": [],
+  "id": "7vAfAmVmDHEaPelv",
+  "tags": []
+}

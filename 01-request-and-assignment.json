@@ -1,0 +1,1989 @@
+{
+  "name": "01 - Kërkesa dhe caktimi i taksisë",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Kërko taksi",
+        "formDescription": "Vendos të dhënat e kontaktit dhe itinerarin.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Emri dhe mbiemri",
+              "fieldName": "customerName",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Numri i telefonit",
+              "fieldName": "phone",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "fieldName": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Qyteti i nisjes",
+              "fieldType": "dropdown",
+              "fieldName": "city",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Prishtinë"
+                  },
+                  {
+                    "option": "Prizren"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Lokacioni i marrjes",
+              "fieldName": "pickup",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Destinacioni",
+              "fieldName": "destination",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b266f78b-72a2-41a2-9bab-03150b33997c",
+      "name": "On form submission",
+      "webhookId": "8eb4a7f8-c19d-4524-8543-9616a0233516"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "7ab5e5eb-35fa-41e0-9e56-1a91b66b2a3b",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        320,
+        0
+      ],
+      "id": "49d8e895-c659-4d10-ad50-72fd89741665",
+      "name": "Kontrollo vlefshmërinë"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const clean = (v) =>\n  typeof v === \"string\" ? v.normalize(\"NFC\").trim().replace(/\\s+/g, \" \") : \"\";\n\nconst cities = {\n  \"prishtinë\": \"Prishtinë\",\n  \"prishtine\": \"Prishtinë\",\n  \"prizren\": \"Prizren\",\n};\n\nconst cityKey = clean($json.city).toLowerCase();\n\nconst data = {\n  customerName: clean($json.customerName),\n  phone: clean($json.phone).replace(/[ ().-]/g, \"\").replace(/^00/, \"+\"),\n  email: clean($json.email).toLowerCase(),\n  city: cities[cityKey] || clean($json.city),\n  pickup: clean($json.pickup),\n  destination: clean($json.destination),\n};\n\nconst errors = [];\n\nif (Object.values(data).some((v) => !v))\n  errors.push(\"Plotëso të gjitha fushat.\");\n\nif (data.email && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(data.email))\n  errors.push(\"Email-i nuk ka format të vlefshëm.\");\n\nif (data.phone && !/^\\+[1-9]\\d{7,14}$/.test(data.phone))\n  errors.push(\"Shkruaj telefonin me prefiks ndërkombëtar, p.sh. +38344000001.\");\n\nif (data.city && !cities[cityKey])\n  errors.push(\"Qyteti i zgjedhur nuk mbështetet.\");\n\nreturn {\n  json: { ...$json, ...data, valid: errors.length === 0, errors },\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        160,
+        0
+      ],
+      "id": "d5294be3-7e3b-4a6f-9c0a-135ee6dbc2f5",
+      "name": "Normalizo dhe valido kërkesën"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Kërkesa nuk u regjistrua",
+        "completionMessage": "={{ $json.errors.join('<br>') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        496,
+        128
+      ],
+      "id": "89b10013-a427-4899-b947-b6e11bcc2511",
+      "name": "Form",
+      "webhookId": "57ded242-4372-4da7-9e06-bfe52af8b238"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblubVmdPPIaPsbsM",
+          "mode": "list",
+          "cachedResultName": "Klientët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblubVmdPPIaPsbsM"
+        },
+        "filterByFormula": "={{ 'OR({Numri i telefonit}=' + JSON.stringify($json.phone) + ',LOWER(TRIM({Email}))=' + JSON.stringify($json.email) + ')' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        -112
+      ],
+      "id": "2f1c4ae2-e0e8-4b67-83bf-97c281ee410d",
+      "name": "Search records",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const request = $('Normalizo dhe valido kërkesën').first().json;\nconst items = $input.all();\nconst records = items.map(item => item.json).filter(record => record.id);\n\nlet customerDecision = 'new';\nlet customerId = null;\nlet customerStatus = null;\n\nif (records.length > 1) {\n  customerDecision = 'conflict';\n} else if (records.length === 1) {\n  const record = records[0];\n  const fields = record.fields ?? {};\n  const email = String(fields.Email ?? '').trim().toLowerCase();\n  const phone = String(fields['Numri i telefonit'] ?? '')\n    .replace(/[\\s().-]/g, '');\n\n  if (email !== request.email || phone !== request.phone) {\n    customerDecision = 'conflict';\n  } else if (fields.Statusi === 'I bllokuar') {\n    customerDecision = 'blocked';\n  } else if (!['Aktiv', 'Guest'].includes(fields.Statusi)) {\n    customerDecision = 'conflict';\n  } else {\n    customerDecision = 'existing';\n    customerId = record.id;\n    customerStatus = fields.Statusi;\n  }\n}\n\nreturn [{\n  json: {\n    ...request,\n    customerDecision,\n    customerId,\n    customerStatus,\n    matchesFound: records.length\n  },\n  pairedItem: items.map((_, item) => ({ item }))\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        32
+      ],
+      "id": "9dbb8be4-734a-4102-9478-1c93803ddbef",
+      "name": "Vlerëso klientin"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.customerDecision }}",
+                    "rightValue": "existing",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "df597586-6569-41f2-b5b5-976a81c6adf9"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ekzistues"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "ae986f6d-16e7-4139-8c8e-51db7ee1aa34",
+                    "leftValue": "={{ $json.customerDecision }}",
+                    "rightValue": "new",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "I ri"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "325594d3-1c29-40d7-b0ac-6f96b3b0fdae",
+                    "leftValue": "={{ $json.customerDecision }}",
+                    "rightValue": "conflict",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Konflikt"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "42922110-22d1-43cf-8c74-954d0d733588",
+                    "leftValue": "={{ $json.customerDecision }}",
+                    "rightValue": "blocked",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "I bllokuar"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        816,
+        0
+      ],
+      "id": "3a858d3c-0568-4a29-925d-b946fc314bc2",
+      "name": "Rruga e klientit"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Klienti": "={{ [$json.customerId] }}",
+            "Statusi": "KËRKUAR",
+            "Lokacioni i marrjes": "={{ $json.pickup }}",
+            "Destinacioni": "={{ $json.destination }}",
+            "Qyteti": "={{ $json.city }}",
+            "Data e kërkesës": "={{ new Date($json.submittedAt).toISOString() }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Udhëtimi",
+              "displayName": "Udhëtimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "KËRKUAR",
+                  "value": "KËRKUAR"
+                },
+                {
+                  "name": "CAKTUAR",
+                  "value": "CAKTUAR"
+                },
+                {
+                  "name": "PRANUAR",
+                  "value": "PRANUAR"
+                },
+                {
+                  "name": "NË UDHËTIM ",
+                  "value": "NË UDHËTIM "
+                },
+                {
+                  "name": "REFUZUAR",
+                  "value": "REFUZUAR"
+                },
+                {
+                  "name": "PËRFUNDUAR",
+                  "value": "PËRFUNDUAR"
+                },
+                {
+                  "name": "ANULUAR",
+                  "value": "ANULUAR"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Klienti",
+              "displayName": "Klienti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Shoferi",
+              "displayName": "Shoferi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Lokacioni i marrjes",
+              "displayName": "Lokacioni i marrjes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Destinacioni",
+              "displayName": "Destinacioni",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Qyteti",
+              "displayName": "Qyteti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Prishtinë",
+                  "value": "Prishtinë"
+                },
+                {
+                  "name": "Prizren",
+                  "value": "Prizren"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e kërkesës",
+              "displayName": "Data e kërkesës",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e fillimit",
+              "displayName": "Data e fillimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e përfundimit",
+              "displayName": "Data e përfundimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Çmimi",
+              "displayName": "Çmimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "I përfunduar",
+              "displayName": "I përfunduar",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1040,
+        -112
+      ],
+      "id": "e559b4a4-7043-4531-830c-accf40ff638d",
+      "name": "Krijo udhëtimin e kërkuar",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "filterByFormula": "={{ 'AND({Qyteti}=' + JSON.stringify($json.fields.Qyteti) + ',{Statusi}=\"I LIRË\")' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1200,
+        -112
+      ],
+      "id": "87414375-ea06-4faf-8586-9ac9fd78b6ff",
+      "name": "Kërko shofer të lirë",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.trip_id }}",
+            "Shoferi": "={{ [$json.driver_id] }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Udhëtimi",
+              "displayName": "Udhëtimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "KËRKUAR",
+                  "value": "KËRKUAR"
+                },
+                {
+                  "name": "CAKTUAR",
+                  "value": "CAKTUAR"
+                },
+                {
+                  "name": "PRANUAR",
+                  "value": "PRANUAR"
+                },
+                {
+                  "name": "NË UDHËTIM ",
+                  "value": "NË UDHËTIM "
+                },
+                {
+                  "name": "REFUZUAR",
+                  "value": "REFUZUAR"
+                },
+                {
+                  "name": "PËRFUNDUAR",
+                  "value": "PËRFUNDUAR"
+                },
+                {
+                  "name": "ANULUAR",
+                  "value": "ANULUAR"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Klienti",
+              "displayName": "Klienti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Shoferi",
+              "displayName": "Shoferi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Lokacioni i marrjes",
+              "displayName": "Lokacioni i marrjes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Destinacioni",
+              "displayName": "Destinacioni",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Qyteti",
+              "displayName": "Qyteti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Prishtinë",
+                  "value": "Prishtinë"
+                },
+                {
+                  "name": "Prizren",
+                  "value": "Prizren"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e kërkesës",
+              "displayName": "Data e kërkesës",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e fillimit",
+              "displayName": "Data e fillimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e përfundimit",
+              "displayName": "Data e përfundimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Çmimi",
+              "displayName": "Çmimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "I përfunduar",
+              "displayName": "I përfunduar",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2000,
+        -224
+      ],
+      "id": "6446e65c-aa80-42f6-9971-38daa8bc2503",
+      "name": "Lidh shoferin me udhëtimin",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.fields.Shoferi[0] }}",
+            "Statusi": "I ZËNË"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Emri i plotë",
+              "displayName": "Emri i plotë",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "I LIRË",
+                  "value": "I LIRË"
+                },
+                {
+                  "name": "I ZËNË",
+                  "value": "I ZËNË"
+                },
+                {
+                  "name": "NË UDHËTIM",
+                  "value": "NË UDHËTIM"
+                },
+                {
+                  "name": "OFFLINE",
+                  "value": "OFFLINE"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Numri i telefonit",
+              "displayName": "Numri i telefonit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Qyteti",
+              "displayName": "Qyteti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Prishtinë",
+                  "value": "Prishtinë"
+                },
+                {
+                  "name": "Prizren",
+                  "value": "Prizren"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Makina",
+              "displayName": "Makina",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Targa",
+              "displayName": "Targa",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Udhëtimet",
+              "displayName": "Udhëtimet",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2160,
+        -224
+      ],
+      "id": "775a3dd0-f4e2-4cfc-9b92-3f50400eb7f5",
+      "name": "Vendos shoferin të zënë",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $('Lidh shoferin me udhëtimin').item.json.id }}",
+            "Statusi": "CAKTUAR"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Udhëtimi",
+              "displayName": "Udhëtimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "KËRKUAR",
+                  "value": "KËRKUAR"
+                },
+                {
+                  "name": "CAKTUAR",
+                  "value": "CAKTUAR"
+                },
+                {
+                  "name": "PRANUAR",
+                  "value": "PRANUAR"
+                },
+                {
+                  "name": "NË UDHËTIM ",
+                  "value": "NË UDHËTIM "
+                },
+                {
+                  "name": "REFUZUAR",
+                  "value": "REFUZUAR"
+                },
+                {
+                  "name": "PËRFUNDUAR",
+                  "value": "PËRFUNDUAR"
+                },
+                {
+                  "name": "ANULUAR",
+                  "value": "ANULUAR"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Klienti",
+              "displayName": "Klienti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Shoferi",
+              "displayName": "Shoferi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Lokacioni i marrjes",
+              "displayName": "Lokacioni i marrjes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Destinacioni",
+              "displayName": "Destinacioni",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Qyteti",
+              "displayName": "Qyteti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Prishtinë",
+                  "value": "Prishtinë"
+                },
+                {
+                  "name": "Prizren",
+                  "value": "Prizren"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e kërkesës",
+              "displayName": "Data e kërkesës",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e fillimit",
+              "displayName": "Data e fillimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e përfundimit",
+              "displayName": "Data e përfundimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Çmimi",
+              "displayName": "Çmimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "I përfunduar",
+              "displayName": "I përfunduar",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2304,
+        -224
+      ],
+      "id": "032975cd-8a29-424a-9b60-45332db1b63a",
+      "name": "Vendos udhëtimin të caktuar",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ ($json.fields ?? $json).Email }}",
+        "subject": "Kërkesë e re për udhëtim",
+        "emailType": "text",
+        "message": "={{ (() => {\n  const request =\n    $('Normalizo dhe valido kërkesën').first().json;\n\n  const tokens =\n    $('Krijo tokenët e përgjigjes').first().json.actionTokens;\n\n  const url =\n    'https://aulon10.app.n8n.cloud/webhook-test/taxi-driver-confirm';\n\n  return [\n    'Ke një kërkesë të re për udhëtim:',\n    '',\n    `Klienti: ${request.customerName}`,\n    `Telefoni: ${request.phone}`,\n    `Qyteti: ${request.city}`,\n    `Nisja: ${request.pickup}`,\n    `Destinacioni: ${request.destination}`,\n    '',\n    'PRANO:',\n    `${url}?token=${tokens.PRANO.token}`,\n    '',\n    'REFUZO:',\n    `${url}?token=${tokens.REFUZO.token}`,\n    '',\n    'Hape linkun përkatës dhe konfirmo vendimin.'\n  ].join('\\n');\n})() }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        3568,
+        -192
+      ],
+      "id": "520f3b1e-ee79-4a3e-9082-684b8d15267d",
+      "name": "Njofto shoferin për caktimin",
+      "webhookId": "df81f07d-9418-4cb2-82de-209b3ac049fb",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "K6LW9H2NlJrGHInV",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "48ce1268-a92d-45da-971e-a0659473ed5c",
+              "leftValue": "={{ $json.id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1360,
+        -112
+      ],
+      "id": "8137dd51-13f9-4b7e-919a-499901c7bb15",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Nuk ka shofer të lirë",
+        "completionMessage": "Kërkesa u regjistrua, por aktualisht nuk ka shofer të lirë në qytetin tënd. Udhëtimi ende nuk është konfirmuar.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1504,
+        16
+      ],
+      "id": "5e51b7e8-9ee0-4a3d-95b6-5282a102d82f",
+      "name": "Njofto klientin — pa shofer",
+      "webhookId": "0b6fde51-6c1f-40c2-8820-f062dd9d251f"
+    },
+    {
+      "parameters": {
+        "jsCode": "const candidates = $input.all()\n  .filter(item => typeof item.json.id === 'string');\n\ncandidates.sort((a, b) =>\n  a.json.id.localeCompare(b.json.id)\n);\n\nreturn candidates.slice(0, 1);"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1504,
+        -224
+      ],
+      "id": "807339de-2db0-4049-a7df-3a89726ed597",
+      "name": "Zgjidh kandidatin për rezervim"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH reservation AS (\n    INSERT INTO driver_reservations (\n        driver_id, trip_id, assignment_id\n    )\n    VALUES ($1, $2, $3)\n    ON CONFLICT DO NOTHING\n    RETURNING driver_id, trip_id, assignment_id\n)\nSELECT\n    EXISTS(SELECT 1 FROM reservation) AS reserved,\n    (SELECT driver_id FROM reservation) AS driver_id,\n    (SELECT trip_id FROM reservation) AS trip_id,\n    (SELECT assignment_id FROM reservation) AS assignment_id;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.id,\n  $('Krijo udhëtimin e kërkuar').first().json.id,\n  'assignment-' + $execution.id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1664,
+        -224
+      ],
+      "id": "ab32f682-dbec-4a96-9204-243617482f4c",
+      "name": "Rezervo shoferin",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1c41038a-b43f-4461-907c-b20d7ddab938",
+              "leftValue": "={{ $json.reserved }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1824,
+        -224
+      ],
+      "id": "6caf8160-c73d-483c-90d2-fd82eea98aa7",
+      "name": "Rezervimi u krye?"
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblozuVXpNBYkcNRo",
+          "mode": "list",
+          "cachedResultName": "Caktimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblozuVXpNBYkcNRo"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Caktimi": "={{ $('Rezervo shoferin').first().json.assignment_id }}",
+            "Udhëtimi": "={{ [$json.id] }}",
+            "Shoferi": "={{ [$json.fields.Shoferi[0]] }}"
+          },
+          "matchingColumns": [
+            "Caktimi"
+          ],
+          "schema": [
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Status",
+              "displayName": "Status",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Todo",
+                  "value": "Todo"
+                },
+                {
+                  "name": "In progress",
+                  "value": "In progress"
+                },
+                {
+                  "name": "Done",
+                  "value": "Done"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Caktimi",
+              "displayName": "Caktimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Udhëtimi",
+              "displayName": "Udhëtimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Shoferi",
+              "displayName": "Shoferi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Vendimi",
+              "displayName": "Vendimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "NË PRITJE",
+                  "value": "NË PRITJE"
+                },
+                {
+                  "name": "PRANO",
+                  "value": "PRANO"
+                },
+                {
+                  "name": "REFUZO",
+                  "value": "REFUZO"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Data e caktimit",
+              "displayName": "Data e caktimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        -224
+      ],
+      "id": "f794d65d-b16c-493d-9ee4-0546770808f8",
+      "name": "Regjistro caktimin",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require('crypto');\n\nfunction createToken() {\n  const token = crypto.randomBytes(32).toString('hex');\n  const hash = crypto\n    .createHash('sha256')\n    .update(token)\n    .digest('hex');\n\n  return { token, hash };\n}\n\nreturn {\n  json: {\n    ...$json,\n    actionTokens: {\n      PRANO: createToken(),\n      REFUZO: createToken()\n    },\n    expiresAt: new Date(\n      Date.now() + 24 * 60 * 60 * 1000\n    ).toISOString()\n  }\n};$input.item;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2864,
+        -64
+      ],
+      "id": "dcbdfb46-94da-4edd-b8ee-5c54da90ce70",
+      "name": "Krijo tokenët e përgjigjes"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "c7a8e946-132e-4c7a-b5d4-6cb78e7b4bd3",
+              "leftValue": "={{ $json.fields.Vendimi ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2656,
+        -224
+      ],
+      "id": "61217327-03dd-4fae-84c7-d334a811785a",
+      "name": "Vendimi është bosh?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblozuVXpNBYkcNRo",
+          "mode": "list",
+          "cachedResultName": "Caktimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblozuVXpNBYkcNRo"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.id }}",
+            "Vendimi": "NË PRITJE"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Caktimi",
+              "displayName": "Caktimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Udhëtimi",
+              "displayName": "Udhëtimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Shoferi",
+              "displayName": "Shoferi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Vendimi",
+              "displayName": "Vendimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "NË PRITJE",
+                  "value": "NË PRITJE"
+                },
+                {
+                  "name": "PRANO",
+                  "value": "PRANO"
+                },
+                {
+                  "name": "REFUZO",
+                  "value": "REFUZO"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e caktimit",
+              "displayName": "Data e caktimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2864,
+        -336
+      ],
+      "id": "9a36753a-7600-4362-9426-3aa90aaa67d5",
+      "name": "Inicializo vendimin",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH saved AS (\n    INSERT INTO action_tokens (\n        assignment_id, trip_id, driver_id,\n        action, token_hash, expires_at\n    )\n    VALUES\n        ($1, $2, $3, 'PRANO', $4, $6::timestamptz),\n        ($1, $2, $3, 'REFUZO', $5, $6::timestamptz)\n    ON CONFLICT (token_hash) DO NOTHING\n    RETURNING action\n)\nSELECT COUNT(*) AS inserted_count\nFROM saved;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.fields.Caktimi,\n  $json.fields['Udhëtimi'][0],\n  $json.fields.Shoferi[0],\n  $json.actionTokens.PRANO.hash,\n  $json.actionTokens.REFUZO.hash,\n  $json.expiresAt\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        3152,
+        -192
+      ],
+      "id": "11d5e571-abc3-4ee5-9622-a1556822a696",
+      "name": "Ruaj hash-et e përgjigjes",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "id": "={{ $('Krijo tokenët e përgjigjes').first().json.fields.Shoferi[0] }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        3360,
+        -192
+      ],
+      "id": "c5f3505e-c4b7-4a5b-ba9e-92e701a2ef37",
+      "name": "Lexo shoferin për email-in e caktimit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Normalizo dhe valido kërkesën",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalizo dhe valido kërkesën": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo vlefshmërinë",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo vlefshmërinë": {
+      "main": [
+        [
+          {
+            "node": "Search records",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search records": {
+      "main": [
+        [
+          {
+            "node": "Vlerëso klientin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vlerëso klientin": {
+      "main": [
+        [
+          {
+            "node": "Rruga e klientit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rruga e klientit": {
+      "main": [
+        [
+          {
+            "node": "Krijo udhëtimin e kërkuar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Krijo udhëtimin e kërkuar": {
+      "main": [
+        [
+          {
+            "node": "Kërko shofer të lirë",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërko shofer të lirë": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lidh shoferin me udhëtimin": {
+      "main": [
+        [
+          {
+            "node": "Vendos shoferin të zënë",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vendos shoferin të zënë": {
+      "main": [
+        [
+          {
+            "node": "Vendos udhëtimin të caktuar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vendos udhëtimin të caktuar": {
+      "main": [
+        [
+          {
+            "node": "Regjistro caktimin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Zgjidh kandidatin për rezervim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto klientin — pa shofer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zgjidh kandidatin për rezervim": {
+      "main": [
+        [
+          {
+            "node": "Rezervo shoferin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rezervo shoferin": {
+      "main": [
+        [
+          {
+            "node": "Rezervimi u krye?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rezervimi u krye?": {
+      "main": [
+        [
+          {
+            "node": "Lidh shoferin me udhëtimin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regjistro caktimin": {
+      "main": [
+        [
+          {
+            "node": "Vendimi është bosh?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Vendimi është bosh?": {
+      "main": [
+        [
+          {
+            "node": "Inicializo vendimin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Krijo tokenët e përgjigjes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inicializo vendimin": {
+      "main": [
+        [
+          {
+            "node": "Krijo tokenët e përgjigjes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Krijo tokenët e përgjigjes": {
+      "main": [
+        [
+          {
+            "node": "Ruaj hash-et e përgjigjes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Ruaj hash-et e përgjigjes": {
+      "main": [
+        [
+          {
+            "node": "Lexo shoferin për email-in e caktimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo shoferin për email-in e caktimit": {
+      "main": [
+        [
+          {
+            "node": "Njofto shoferin për caktimin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "eb78f7ee-483d-4290-b72b-f7231252131c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"
+  },
+  "nodeGroups": [],
+  "id": "FWhy7HEGvMySeiAO",
+  "tags": []
+}
