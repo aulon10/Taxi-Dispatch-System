@@ -56,3 +56,41 @@ Concurrent assignment protection is unresolved.
 
 These tests ran sequentially. Concurrent execution,
 workflow integration and recovery are still pending.
+
+## 2026-10-09
+
+### Assignment and driver decisions
+
+- Integrated Neon reservations into driver assignment and reassignment.
+- Added hashed action tokens for PRANO and REFUZO.
+- Tested acceptance: the decision operation completed and the customer received an email.
+- Tested refusal with an available replacement: the request was sent to another driver.
+- Tested refusal without a replacement: the trip remained KËRKUAR and the customer received a waiting notification.
+- Verified that both refusal operations completed and no reservation remained for that test trip.
+
+### Trip start
+
+- Added GET confirmation and POST decision webhooks.
+- Tested JO: the trip start was not recorded.
+- Tested PO: the trip changed to NË UDHËTIM.
+- Added generation and delivery of the trip completion link.
+
+## 2026-10-10
+
+### Trip completion
+
+- Added completion confirmation and decision handling.
+- Handled trailing whitespace in trip status comparisons.
+- Tested JO: completion was not recorded.
+- Tested PO: the trip changed to PËRFUNDUAR and the completion date was recorded.
+- Verified that the driver returned to I LIRË.
+- Verified that the customer's completed-trip total increased from 1 to 2.
+
+### Remaining work
+
+- Build the Botpress agent with verified customer and driver identity.
+- Restrict queries and actions to the authenticated user's own records.
+- Test a fresh request through acceptance, start and completion, including all automatic emails.
+- Test concurrent requests and repeated submissions of used action links.
+- Save the current workflows and remaining Neon schema in GitHub.
+- Finish documentation and demonstration videos.
