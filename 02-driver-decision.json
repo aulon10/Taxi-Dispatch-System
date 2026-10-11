@@ -697,7 +697,7 @@
     },
     {
       "parameters": {
-        "sendTo": "aulon.m1@gmail.com",
+        "sendTo": "={{ ($('Lexo klientin për njoftim').first().json.fields ?? $('Lexo klientin për njoftim').first().json).Email }}",
         "subject": "Shoferi pranoi udhëtimin tënd",
         "emailType": "text",
         "message": "={{ `Udhëtimi yt është pranuar.\n\nShoferi: ${$('Mbaj shoferin të zënë').first().json.fields['Emri i plotë']}\nTelefoni: ${$('Mbaj shoferin të zënë').first().json.fields['Numri i telefonit']}\nMakina: ${$('Mbaj shoferin të zënë').first().json.fields.Makina}\nTarga: ${$('Mbaj shoferin të zënë').first().json.fields.Targa}\n\nQyteti: ${$('Lexo udhëtimin për konfirmim').first().json.fields.Qyteti}\nLokacioni i marrjes: ${$('Lexo udhëtimin për konfirmim').first().json.fields['Lokacioni i marrjes']}\nDestinacioni: ${$('Lexo udhëtimin për konfirmim').first().json.fields.Destinacioni}` }}",
@@ -2790,7 +2790,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const tokens = $input.first().json;\nconst assignment = $('Ruaj caktimin e ri').first().json;\nconst context = $('Përgatit kandidatët për ricaktim')\n  .first().json;\n\nconst validToken = value =>\n  typeof value === 'string' &&\n  /^[a-f0-9]{64}$/.test(value);\n\nif (\n  tokens.tokens_created !== 2 ||\n  !validToken(tokens.accept_token) ||\n  !validToken(tokens.refuse_token)\n) {\n  throw new Error('Dy tokenët e caktimit të ri nuk u krijuan.');\n}\n\nconst confirmationUrl =\n  'https://aulon10.app.n8n.cloud/webhook-test/taxi-driver-confirm';\n\nreturn [{\n  json: {\n    ...assignment,\n    customerId: context.customerId,\n    acceptUrl:\n      `${confirmationUrl}?token=${tokens.accept_token}`,\n    refuseUrl:\n      `${confirmationUrl}?token=${tokens.refuse_token}`,\n    expiresAt: tokens.expires_at\n  },\n  pairedItem: { item: 0 }\n}];"
+        "jsCode": "const tokens = $input.first().json;\nconst assignment = $('Ruaj caktimin e ri').first().json;\nconst context = $('Përgatit kandidatët për ricaktim')\n  .first().json;\n\nconst validToken = value =>\n  typeof value === 'string' &&\n  /^[a-f0-9]{64}$/.test(value);\n\nif (\n  tokens.tokens_created !== 2 ||\n  !validToken(tokens.accept_token) ||\n  !validToken(tokens.refuse_token)\n) {\n  throw new Error('Dy tokenët e caktimit të ri nuk u krijuan.');\n}\n\nconst confirmationUrl =\n  'https://aulon10.app.n8n.cloud/webhook/taxi-driver-confirm';\n\nreturn [{\n  json: {\n    ...assignment,\n    customerId: context.customerId,\n    acceptUrl:\n      `${confirmationUrl}?token=${tokens.accept_token}`,\n    refuseUrl:\n      `${confirmationUrl}?token=${tokens.refuse_token}`,\n    expiresAt: tokens.expires_at\n  },\n  pairedItem: { item: 0 }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3199,7 +3199,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const tokens = $('Krijo tokenin e fillimit').first().json;\nconst driverRecord = $input.first().json;\nconst driver = driverRecord.fields ?? driverRecord;\n\nconst tripRecord = $('Lexo udhëtimin për konfirmim')\n  .first().json;\nconst trip = tripRecord.fields ?? tripRecord;\n\nif (\n  tokens.tokens_created !== 1 ||\n  typeof tokens.start_token !== 'string' ||\n  !/^[a-f0-9]{64}$/.test(tokens.start_token)\n) {\n  throw new Error('Tokeni i fillimit nuk u krijua.');\n}\n\nfunction required(value, label) {\n  const text = String(value ?? '').trim();\n  if (!text) {\n    throw new Error(`Mungon: ${label}`);\n  }\n  return text;\n}\n\nconst to = required(driver.Email, 'email-i i shoferit');\nconst name = required(driver['Emri i plotë'], 'emri i shoferit');\nconst pickup = required(trip['Lokacioni i marrjes'], 'nisja');\nconst destination = required(trip.Destinacioni, 'destinacioni');\n\nconst startUrl =\n  'https://aulon10.app.n8n.cloud/webhook-test/taxi-trip-start-confirm'\n  + '?token=' + tokens.start_token;\n\nreturn [{\n  json: {\n    to,\n    subject: 'Konfirmimi i fillimit të udhëtimit',\n    message: [\n      `Përshëndetje ${name},`,\n      '',\n      'Pranimi i udhëtimit u regjistrua.',\n      `Nisja: ${pickup}`,\n      `Destinacioni: ${destination}`,\n      '',\n      'Kur ta fillosh udhëtimin, hape këtë link dhe zgjidh PO:',\n      startUrl,\n      '',\n      'Nëse ende nuk ke filluar, zgjidh JO.'\n    ].join('\\n')\n  },\n  pairedItem: { item: 0 }\n}];"
+        "jsCode": "const tokens = $('Krijo tokenin e fillimit').first().json;\nconst driverRecord = $input.first().json;\nconst driver = driverRecord.fields ?? driverRecord;\n\nconst tripRecord = $('Lexo udhëtimin për konfirmim')\n  .first().json;\nconst trip = tripRecord.fields ?? tripRecord;\n\nif (\n  tokens.tokens_created !== 1 ||\n  typeof tokens.start_token !== 'string' ||\n  !/^[a-f0-9]{64}$/.test(tokens.start_token)\n) {\n  throw new Error('Tokeni i fillimit nuk u krijua.');\n}\n\nfunction required(value, label) {\n  const text = String(value ?? '').trim();\n  if (!text) {\n    throw new Error(`Mungon: ${label}`);\n  }\n  return text;\n}\n\nconst to = required(driver.Email, 'email-i i shoferit');\nconst name = required(driver['Emri i plotë'], 'emri i shoferit');\nconst pickup = required(trip['Lokacioni i marrjes'], 'nisja');\nconst destination = required(trip.Destinacioni, 'destinacioni');\n\nconst startUrl =\n  'https://aulon10.app.n8n.cloud/webhook/taxi-trip-start-confirm'\n  + '?token=' + tokens.start_token;\n\nreturn [{\n  json: {\n    to,\n    subject: 'Konfirmimi i fillimit të udhëtimit',\n    message: [\n      `Përshëndetje ${name},`,\n      '',\n      'Pranimi i udhëtimit u regjistrua.',\n      `Nisja: ${pickup}`,\n      `Destinacioni: ${destination}`,\n      '',\n      'Kur ta fillosh udhëtimin, hape këtë link dhe zgjidh PO:',\n      startUrl,\n      '',\n      'Nëse ende nuk ke filluar, zgjidh JO.'\n    ].join('\\n')\n  },\n  pairedItem: { item: 0 }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -3909,12 +3909,12 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "a19bf06a-9951-4caf-88ef-00d0714c1b9e",
+  "versionId": "7fd945a6-13ad-498a-a011-acdbd1221eae",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"

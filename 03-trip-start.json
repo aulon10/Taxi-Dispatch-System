@@ -311,7 +311,7 @@
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "={{ (() => {\n  const record = $('Lexo udhëtimin për fillim').first().json;\n  const trip = record.fields ?? record;\n  const request = $('Kontrollo kërkesën e fillimit').first().json;\n\n  const escape = value => String(value ?? '').replace(\n    /[&<>\"']/g,\n    char => ({\n      '&': '&amp;',\n      '<': '&lt;',\n      '>': '&gt;',\n      '\"': '&quot;',\n      \"'\": '&#39;'\n    }[char])\n  );\n\n  return `<!doctype html>\n<html lang=\"sq\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Fillimi i udhëtimit</title>\n</head>\n<body style=\"font-family:Arial,sans-serif;max-width:520px;margin:40px auto;padding:20px\">\n  <h2>A e ke filluar udhëtimin?</h2>\n  <p>Nisja: ${escape(trip['Lokacioni i marrjes'])}</p>\n  <p>Destinacioni: ${escape(trip.Destinacioni)}</p>\n  <form method=\"POST\"\n    action=\"https://aulon10.app.n8n.cloud/webhook-test/taxi-trip-start-response\">\n    <input type=\"hidden\" name=\"token\" value=\"${escape(request.token)}\">\n    <button type=\"submit\" name=\"decision\" value=\"PO\">PO, e kam filluar</button>\n    <button type=\"submit\" name=\"decision\" value=\"JO\">JO, ende jo</button>\n  </form>\n</body>\n</html>`;\n})() }}",
+        "responseBody": "={{ (() => {\n  const record = $('Lexo udhëtimin për fillim').first().json;\n  const trip = record.fields ?? record;\n  const request = $('Kontrollo kërkesën e fillimit').first().json;\n\n  const escape = value => String(value ?? '').replace(\n    /[&<>\"']/g,\n    char => ({\n      '&': '&amp;',\n      '<': '&lt;',\n      '>': '&gt;',\n      '\"': '&quot;',\n      \"'\": '&#39;'\n    }[char])\n  );\n\n  return `<!doctype html>\n<html lang=\"sq\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Fillimi i udhëtimit</title>\n</head>\n<body style=\"font-family:Arial,sans-serif;max-width:520px;margin:40px auto;padding:20px\">\n  <h2>A e ke filluar udhëtimin?</h2>\n  <p>Nisja: ${escape(trip['Lokacioni i marrjes'])}</p>\n  <p>Destinacioni: ${escape(trip.Destinacioni)}</p>\n  <form method=\"POST\"\n    action=\"https://aulon10.app.n8n.cloud/webhook/taxi-trip-start-response\">\n    <input type=\"hidden\" name=\"token\" value=\"${escape(request.token)}\">\n    <button type=\"submit\" name=\"decision\" value=\"PO\">PO, e kam filluar</button>\n    <button type=\"submit\" name=\"decision\" value=\"JO\">JO, ende jo</button>\n  </form>\n</body>\n</html>`;\n})() }}",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -1016,7 +1016,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const tokens = $('Krijo tokenin e përfundimit').first().json;\nconst driverRecord = $input.first().json;\nconst driver = driverRecord.fields ?? driverRecord;\n\nconst tripRecord = $('Lexo udhëtimin për fillim').first().json;\nconst trip = tripRecord.fields ?? tripRecord;\n\nif (\n  tokens.tokens_created !== 1 ||\n  typeof tokens.finish_token !== 'string' ||\n  !/^[a-f0-9]{64}$/.test(tokens.finish_token)\n) {\n  throw new Error('Tokeni i përfundimit nuk u krijua.');\n}\n\nfunction required(value, label) {\n  const text = String(value ?? '').trim();\n  if (!text) {\n    throw new Error(`Mungon: ${label}`);\n  }\n  return text;\n}\n\nconst to = required(driver.Email, 'email-i i shoferit');\nconst name = required(driver['Emri i plotë'], 'emri i shoferit');\nconst pickup = required(trip['Lokacioni i marrjes'], 'nisja');\nconst destination = required(trip.Destinacioni, 'destinacioni');\n\nconst finishUrl =\n  'https://aulon10.app.n8n.cloud/webhook-test/taxi-trip-finish-confirm'\n  + '?token=' + tokens.finish_token;\n\nreturn [{\n  json: {\n    to,\n    subject: 'Konfirmimi i përfundimit të udhëtimit',\n    message: [\n      `Përshëndetje ${name},`,\n      '',\n      'Fillimi i udhëtimit u regjistrua.',\n      `Nisja: ${pickup}`,\n      `Destinacioni: ${destination}`,\n      '',\n      'Kur ta përfundosh udhëtimin, hape këtë link dhe zgjidh PO:',\n      finishUrl,\n      '',\n      'Nëse ende je në udhëtim, zgjidh JO.'\n    ].join('\\n')\n  },\n  pairedItem: { item: 0 }\n}];"
+        "jsCode": "const tokens = $('Krijo tokenin e përfundimit').first().json;\nconst driverRecord = $input.first().json;\nconst driver = driverRecord.fields ?? driverRecord;\n\nconst tripRecord = $('Lexo udhëtimin për fillim').first().json;\nconst trip = tripRecord.fields ?? tripRecord;\n\nif (\n  tokens.tokens_created !== 1 ||\n  typeof tokens.finish_token !== 'string' ||\n  !/^[a-f0-9]{64}$/.test(tokens.finish_token)\n) {\n  throw new Error('Tokeni i përfundimit nuk u krijua.');\n}\n\nfunction required(value, label) {\n  const text = String(value ?? '').trim();\n  if (!text) {\n    throw new Error(`Mungon: ${label}`);\n  }\n  return text;\n}\n\nconst to = required(driver.Email, 'email-i i shoferit');\nconst name = required(driver['Emri i plotë'], 'emri i shoferit');\nconst pickup = required(trip['Lokacioni i marrjes'], 'nisja');\nconst destination = required(trip.Destinacioni, 'destinacioni');\n\nconst finishUrl =\n  'https://aulon10.app.n8n.cloud/webhook/taxi-trip-finish-confirm'\n  + '?token=' + tokens.finish_token;\n\nreturn [{\n  json: {\n    to,\n    subject: 'Konfirmimi i përfundimit të udhëtimit',\n    message: [\n      `Përshëndetje ${name},`,\n      '',\n      'Fillimi i udhëtimit u regjistrua.',\n      `Nisja: ${pickup}`,\n      `Destinacioni: ${destination}`,\n      '',\n      'Kur ta përfundosh udhëtimin, hape këtë link dhe zgjidh PO:',\n      finishUrl,\n      '',\n      'Nëse ende je në udhëtim, zgjidh JO.'\n    ].join('\\n')\n  },\n  pairedItem: { item: 0 }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -1335,12 +1335,12 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "b063a0fe-95c8-4a28-8b91-58f173e4f79b",
+  "versionId": "919d2881-d115-4e01-9a51-ce0fe748ef42",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"

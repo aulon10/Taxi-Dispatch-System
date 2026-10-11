@@ -1,0 +1,950 @@
+{
+  "name": "07 - Veprimet e agjentit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taxi-agent-action",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "2a388ce7-1cc5-45e6-b43e-f55694b1786d",
+      "name": "Merr veprimin e agjentit",
+      "webhookId": "950c41db-37f1-4cc1-841a-b8e7811a9082",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DGeVUfJDAHzcog72",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require('crypto');\nconst body = $json.body ?? {};\n\nconst token = body.sessionToken;\n\nconst validToken =\n  typeof token === 'string' &&\n  /^[a-f0-9]{64}$/.test(token);\n\nconst action = typeof body.action === 'string'\n  ? body.action.trim().toUpperCase()\n  : '';\n\nconst tripId = typeof body.tripId === 'string'\n  ? body.tripId.trim()\n  : '';\n\nconst allowedActions = [\n  'PRANO',\n  'REFUZO',\n  'FILLIM',\n  'PERFUNDIM',\n  'PERDITESO_CMIMIN'\n];\n\nconst validAction = allowedActions.includes(action);\nconst validTrip = /^rec[a-zA-Z0-9]{14}$/.test(tripId);\n\nconst validPrice =\n  action !== 'PERDITESO_CMIMIN' ||\n  (\n    typeof body.price === 'number' &&\n    Number.isFinite(body.price) &&\n    body.price >= 0\n  );\n\nconst validRequest =\n  validToken &&\n  validAction &&\n  validTrip &&\n  validPrice &&\n  body.confirmed === true;\n\nreturn {\n  json: {\n    validRequest,\n    sessionHash: validToken\n      ? crypto.createHash('sha256').update(token).digest('hex')\n      : null,\n    action,\n    tripId,\n    price: action === 'PERDITESO_CMIMIN' && validPrice\n      ? body.price\n      : null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        192,
+        0
+      ],
+      "id": "2654e838-ba26-41ac-a76c-6d3c20009703",
+      "name": "Kontrollo kërkesën e veprimit"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH current_session AS (\n  SELECT s.actor_id, s.role, s.email\n  FROM public.taxi_auth_sessions s\n  WHERE s.token_hash = $1::TEXT\n    AND $2::BOOLEAN\n    AND s.revoked_at IS NULL\n    AND s.expires_at > clock_timestamp()\n)\nSELECT\n  EXISTS (\n    SELECT 1 FROM current_session\n  ) AS valid_session,\n  (\n    SELECT row_to_json(s)\n    FROM current_session s\n  ) AS session;",
+        "options": {
+          "queryReplacement": "={{ [$json.sessionHash, $json.validRequest] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        368,
+        0
+      ],
+      "id": "3601bfcf-5e2b-4468-af5b-31808f26735c",
+      "name": "Verifiko sesionin për veprimin",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const request =\n  $('Kontrollo kërkesën e veprimit').first().json;\n\nconst session = $json.session;\n\nlet authorized = false;\nlet httpStatus = 200;\nlet code = 'AUTHORIZED';\nlet message = '';\n\nif (!request.validRequest) {\n  httpStatus = 400;\n  code = 'INVALID_REQUEST';\n  message = 'Kërkesa e veprimit nuk është e vlefshme.';\n} else if (!$json.valid_session || !session) {\n  httpStatus = 401;\n  code = 'SESSION_INVALID';\n  message = 'Hyrja nuk është më e vlefshme. Hyr përsëri.';\n} else if (session.role !== 'DRIVER') {\n  httpStatus = 403;\n  code = 'FORBIDDEN';\n  message = 'Vetëm shoferi mund ta kryejë këtë veprim.';\n} else {\n  authorized = true;\n}\n\nreturn {\n  json: {\n    ...request,\n    authorized,\n    driverId: authorized ? session.actor_id : null,\n    verifiedEmail: authorized ? session.email : null,\n    httpStatus,\n    code,\n    message\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        544,
+        0
+      ],
+      "id": "5bfb2ec6-d0e1-4058-bdbb-a9cd0feec9b8",
+      "name": "Autorizo veprimin e shoferit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9d94ea3c-2b3b-40e0-8052-e9c576aef7f5",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        720,
+        0
+      ],
+      "id": "bf12d2bb-ba58-4241-a7d3-02233b18e456",
+      "name": "Lejo veprimin e shoferit?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: false,\n  code: $json.code,\n  message: $json.message\n} }}",
+        "options": {
+          "responseCode": "={{ $json.httpStatus }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1216,
+        240
+      ],
+      "id": "a0758f4b-d33d-4b3f-8179-c7c9a73a27a7",
+      "name": "Refuzo veprimin e agjentit"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "id": "={{ $json.driverId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        -96
+      ],
+      "id": "33866fcd-40ab-4de2-9763-28f15dcfd845",
+      "name": "Lexo shoferin e veprimit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "id": "={{ $('Autorizo veprimin e shoferit').first().json.tripId }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1072,
+        -96
+      ],
+      "id": "8e66172b-dbab-4f91-aad1-f6611d992aae",
+      "name": "Lexo udhëtimin e veprimit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const context =\n  $('Autorizo veprimin e shoferit').first().json;\n\nconst driverRecord =\n  $('Lexo shoferin e veprimit').first().json;\n\nconst tripRecord = $json;\n\nconst driver = driverRecord.fields ?? driverRecord;\nconst trip = tripRecord.fields ?? tripRecord;\n\nconst text = value => String(value ?? '').trim();\n\nconst driverStatus = text(driver.Statusi);\nconst tripStatus = text(trip.Statusi);\n\nconst profileMatches =\n  driverRecord.id === context.driverId &&\n  text(driver.Email).toLowerCase() ===\n    text(context.verifiedEmail).toLowerCase();\n\nconst ownsTrip =\n  tripRecord.id === context.tripId &&\n  Array.isArray(trip.Shoferi) &&\n  trip.Shoferi.length === 1 &&\n  trip.Shoferi[0] === context.driverId;\n\nlet stateAllowsAction = false;\n\nswitch (context.action) {\n  case 'PRANO':\n  case 'REFUZO':\n    stateAllowsAction =\n      tripStatus === 'CAKTUAR' &&\n      driverStatus === 'I ZËNË';\n    break;\n\n  case 'FILLIM':\n    stateAllowsAction =\n      tripStatus === 'PRANUAR' &&\n      driverStatus === 'I ZËNË';\n    break;\n\n  case 'PERFUNDIM':\n    stateAllowsAction =\n      tripStatus === 'NË UDHËTIM' &&\n      driverStatus === 'NË UDHËTIM' &&\n      Boolean(trip['Data e fillimit']);\n    break;\n\n    case 'PERDITESO_CMIMIN':\n    stateAllowsAction = [\n      'PRANUAR',\n      'NË UDHËTIM',\n      'PËRFUNDUAR'\n    ].includes(tripStatus);\n    break;\n}\n\nlet httpStatus = 200;\nlet code = 'ELIGIBLE';\nlet message = '';\n\nif (!profileMatches) {\n  httpStatus = 401;\n  code = 'SESSION_INVALID';\n  message = 'Profili nuk u verifikua. Hyr përsëri.';\n} else if (!ownsTrip) {\n  httpStatus = 403;\n  code = 'TRIP_FORBIDDEN';\n  message = 'Mund të veprosh vetëm mbi udhëtimet e tua.';\n} else if (!stateAllowsAction) {\n  httpStatus = 409;\n  code = 'INVALID_STATE';\n  message = 'Gjendja e udhëtimit nuk e lejon këtë veprim.';\n}\n\nreturn {\n  json: {\n    ...context,\n    allowedTrip:\n      profileMatches && ownsTrip && stateAllowsAction,\n    httpStatus,\n    code,\n    message\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1248,
+        -96
+      ],
+      "id": "f9d48b38-0ce3-4838-a2de-747bfb502200",
+      "name": "Kontrollo pronësinë dhe gjendjen"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "b52162a3-c192-4437-84f0-549cf3a5867f",
+              "leftValue": "={{ $json.allowedTrip }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1440,
+        -96
+      ],
+      "id": "9802941a-8391-4020-a584-84d247a69814",
+      "name": "Udhëtimi lejon veprimin?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f269f71a-0fa4-4abe-9d0a-10127423eb51",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "PERDITESO_CMIMIN",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1632,
+        -192
+      ],
+      "id": "38b2f35e-8cce-47da-aaca-64ced720d98f",
+      "name": "Veprimi është përditësim çmimi? "
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "id": "={{ $json.tripId }}",
+            "Çmimi": "={{ $json.price }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": false
+            },
+            {
+              "id": "Udhëtimi",
+              "displayName": "Udhëtimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "KËRKUAR",
+                  "value": "KËRKUAR"
+                },
+                {
+                  "name": "CAKTUAR",
+                  "value": "CAKTUAR"
+                },
+                {
+                  "name": "PRANUAR",
+                  "value": "PRANUAR"
+                },
+                {
+                  "name": "NË UDHËTIM ",
+                  "value": "NË UDHËTIM "
+                },
+                {
+                  "name": "REFUZUAR",
+                  "value": "REFUZUAR"
+                },
+                {
+                  "name": "PËRFUNDUAR",
+                  "value": "PËRFUNDUAR"
+                },
+                {
+                  "name": "ANULUAR",
+                  "value": "ANULUAR"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Klienti",
+              "displayName": "Klienti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Shoferi",
+              "displayName": "Shoferi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Lokacioni i marrjes",
+              "displayName": "Lokacioni i marrjes",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Destinacioni",
+              "displayName": "Destinacioni",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Qyteti",
+              "displayName": "Qyteti",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Prishtinë",
+                  "value": "Prishtinë"
+                },
+                {
+                  "name": "Prizren",
+                  "value": "Prizren"
+                }
+              ],
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Data e kërkesës",
+              "displayName": "Data e kërkesës",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Data e fillimit",
+              "displayName": "Data e fillimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Data e përfundimit",
+              "displayName": "Data e përfundimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "dateTime",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Çmimi",
+              "displayName": "Çmimi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "I përfunduar",
+              "displayName": "I përfunduar",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Caktimet",
+              "displayName": "Caktimet",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1792,
+        -272
+      ],
+      "id": "46074ce0-6088-4f7f-92e1-2aa7e6cc2d8a",
+      "name": "Përditëso çmimin e udhëtimit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const request =\n  $('Kontrollo pronësinë dhe gjendjen').first().json;\n\nconst record = $json;\nconst fields = record.fields ?? record;\n\nconst success =\n  record.id === request.tripId &&\n  typeof fields['Çmimi'] === 'number' &&\n  fields['Çmimi'] === request.price;\n\nreturn {\n  json: {\n    ok: success,\n    httpStatus: success ? 200 : 503,\n    code: success\n      ? 'PRICE_UPDATED'\n      : 'PRICE_NOT_CONFIRMED',\n    tripId: request.tripId,\n    price: success ? fields['Çmimi'] : null,\n    message: success\n      ? `Çmimi i udhëtimit u vendos në ${fields['Çmimi']}.`\n      : 'Përditësimi i çmimit nuk u konfirmua. Kontrollo udhëtimin.'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1952,
+        -272
+      ],
+      "id": "bdffa0c8-10be-46f7-9e4f-f765a235c882",
+      "name": "Përgatit rezultatin e çmimit"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: $json.ok,\n  code: $json.code,\n  tripId: $json.tripId,\n  price: $json.price,\n  message: $json.message\n} }}",
+        "options": {
+          "responseCode": "={{ $json.httpStatus }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2128,
+        -272
+      ],
+      "id": "26043b72-ffb0-424d-b57f-cd37a282f164",
+      "name": "Kthe rezultatin e çmimit"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH eligible AS (\n  SELECT\n    r.assignment_id,\n    r.trip_id,\n    r.driver_id,\n    $3::TEXT AS action,\n    r.assignment_id ||\n      CASE $3::TEXT\n        WHEN 'PRANO' THEN ':decision'\n        WHEN 'REFUZO' THEN ':decision'\n        WHEN 'FILLIM' THEN ':start'\n        WHEN 'PERFUNDIM' THEN ':finish'\n      END AS operation_key\n  FROM public.driver_reservations r\n  JOIN public.taxi_auth_sessions s\n    ON s.actor_id = r.driver_id\n   AND s.token_hash = $4::TEXT\n   AND s.role = 'DRIVER'\n   AND s.revoked_at IS NULL\n   AND s.expires_at > clock_timestamp()\n  WHERE r.driver_id = $1::TEXT\n    AND r.trip_id = $2::TEXT\n    AND $3::TEXT IN (\n      'PRANO', 'REFUZO', 'FILLIM', 'PERFUNDIM'\n    )\n    AND NOT EXISTS (\n      SELECT 1\n      FROM public.dispatch_operations o\n      WHERE o.trip_id = r.trip_id\n        AND o.status = 'processing'\n    )\n    AND NOT EXISTS (\n      SELECT 1\n      FROM public.dispatch_operations o\n      WHERE o.operation_key =\n        r.assignment_id ||\n        CASE $3::TEXT\n          WHEN 'PRANO' THEN ':decision'\n          WHEN 'REFUZO' THEN ':decision'\n          WHEN 'FILLIM' THEN ':start'\n          WHEN 'PERFUNDIM' THEN ':finish'\n        END\n    )\n    AND (\n      $3::TEXT IN ('PRANO', 'REFUZO')\n      OR EXISTS (\n        SELECT 1\n        FROM public.dispatch_operations o\n        WHERE o.assignment_id = r.assignment_id\n          AND o.trip_id = r.trip_id\n          AND o.driver_id = r.driver_id\n          AND o.status = 'completed'\n          AND o.operation_key =\n            r.assignment_id ||\n            CASE $3::TEXT\n              WHEN 'FILLIM' THEN ':decision'\n              WHEN 'PERFUNDIM' THEN ':start'\n            END\n          AND o.action =\n            CASE $3::TEXT\n              WHEN 'FILLIM' THEN 'PRANO'\n              WHEN 'PERFUNDIM' THEN 'FILLIM'\n            END\n      )\n    )\n),\ngenerated AS MATERIALIZED (\n  SELECT\n    e.*,\n    encode(gen_random_bytes(32), 'hex') AS raw_token\n  FROM eligible e\n),\ncreated AS (\n  INSERT INTO public.action_tokens (\n    token_hash,\n    assignment_id,\n    trip_id,\n    driver_id,\n    action,\n    expires_at\n  )\n  SELECT\n    encode(digest(g.raw_token, 'sha256'), 'hex'),\n    g.assignment_id,\n    g.trip_id,\n    g.driver_id,\n    g.action,\n    clock_timestamp() + INTERVAL '5 minutes'\n  FROM generated g\n  ON CONFLICT DO NOTHING\n  RETURNING token_hash\n)\nSELECT\n  EXISTS (SELECT 1 FROM created) AS token_created,\n  $3::TEXT AS action,\n  g.raw_token AS action_token,\n  g.assignment_id,\n  g.trip_id,\n  g.driver_id,\n  g.operation_key\nFROM (VALUES (1)) AS result(n)\nLEFT JOIN generated g\n  ON EXISTS (\n    SELECT 1\n    FROM created c\n    WHERE c.token_hash =\n      encode(digest(g.raw_token, 'sha256'), 'hex')\n  );",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.driverId,\n  $json.tripId,\n  $json.action,\n  $json.sessionHash\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1792,
+        -96
+      ],
+      "id": "cf1b6b75-cc18-40c9-9707-64b0d0ff739a",
+      "name": "Krijo tokenin e veprimit të agjentit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "f75ffbda-baf9-498d-bb60-97c906ad475e",
+              "leftValue": "={{ $json.token_created }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1952,
+        -96
+      ],
+      "id": "d3cefc95-c2d6-4998-99e3-b1677e7ea35a",
+      "name": "Tokeni i veprimit u krijua?"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "return {\n  json: {\n    httpStatus: 409,\n    code: 'ACTION_BLOCKED',\n    message:\n      'Veprimi nuk mund të nisë. Kontrollo gjendjen aktuale të udhëtimit; mund të jetë përpunuar tashmë ose të ketë një përpunim në vazhdim.'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2128,
+        48
+      ],
+      "id": "a65e1844-1a6e-40d6-8f97-14fbbae049c5",
+      "name": "Përgatit pengesën e veprimit"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ ({\n  PRANO: 'https://aulon10.app.n8n.cloud/webhook/taxi-driver-response',\n  REFUZO: 'https://aulon10.app.n8n.cloud/webhook/taxi-driver-response',\n  FILLIM: 'https://aulon10.app.n8n.cloud/webhook/taxi-trip-start-response',\n  PERFUNDIM: 'https://aulon10.app.n8n.cloud/webhook/taxi-trip-finish-response'\n})[$json.action] }}",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  token: $json.action_token,\n  decision: 'PO'\n} }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 90000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2128,
+        -96
+      ],
+      "id": "e58b7fdb-fccd-4bc6-9d4f-43dcbb4a16a2",
+      "name": "Dërgo veprimin te automatizimi",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH matched_operation AS (\n  SELECT status, completed_at\n  FROM public.dispatch_operations\n  WHERE operation_key = $1::TEXT\n    AND assignment_id = $2::TEXT\n    AND trip_id = $3::TEXT\n    AND driver_id = $4::TEXT\n    AND action = $5::TEXT\n)\nSELECT\n  EXISTS (\n    SELECT 1\n    FROM matched_operation\n    WHERE status = 'completed'\n  ) AS operation_completed,\n  COALESCE(\n    (SELECT status FROM matched_operation),\n    'missing'\n  ) AS operation_status,\n  (SELECT completed_at FROM matched_operation)\n    AS completed_at;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Krijo tokenin e veprimit të agjentit').first().json.operation_key,\n  $('Krijo tokenin e veprimit të agjentit').first().json.assignment_id,\n  $('Krijo tokenin e veprimit të agjentit').first().json.trip_id,\n  $('Krijo tokenin e veprimit të agjentit').first().json.driver_id,\n  $('Krijo tokenin e veprimit të agjentit').first().json.action\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        2304,
+        -96
+      ],
+      "id": "67a9c60d-1852-4082-9ffc-73db4f337682",
+      "name": "Kontrollo përfundimin e veprimit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const request =\n  $('Kontrollo pronësinë dhe gjendjen').first().json;\n\nconst response =\n  $('Dërgo veprimin te automatizimi').first().json;\n\nconst completed = $json.operation_completed === true;\nconst status = $json.operation_status;\n\nconst responseConfirmed =\n  Number(response.statusCode) >= 200 &&\n  Number(response.statusCode) < 300;\n\nconst messages = {\n  PRANO: 'Udhëtimi u pranua.',\n  REFUZO: 'Refuzimi i udhëtimit u regjistrua.',\n  FILLIM: 'Fillimi u regjistrua. Udhëtimi është në vazhdim.',\n  PERFUNDIM:\n    'Udhëtimi u përfundua dhe shoferi është i lirë.'\n};\n\nlet httpStatus;\nlet code;\nlet message;\n\nif (completed) {\n  httpStatus = 200;\n  code = 'ACTION_COMPLETED';\n  message = messages[request.action];\n\n  if (\n    !responseConfirmed &&\n    ['PRANO', 'REFUZO', 'FILLIM'].includes(request.action)\n  ) {\n    message +=\n      ' Njoftimet nuk u konfirmuan plotësisht; kontrollo email-in.';\n  }\n} else if (status === 'processing') {\n  httpStatus = 202;\n  code = 'ACTION_PROCESSING';\n  message =\n    'Veprimi është ende në përpunim. Kontrollo përsëri gjendjen e udhëtimit para se ta përsërisësh.';\n} else {\n  httpStatus = 503;\n  code = 'ACTION_NOT_CONFIRMED';\n  message =\n    'Veprimi nuk u konfirmua plotësisht. Kontrollo gjendjen e udhëtimit para se ta përsërisësh.';\n}\n\nreturn {\n  json: {\n    ok: completed,\n    httpStatus,\n    code,\n    tripId: request.tripId,\n    action: request.action,\n    message\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2496,
+        -96
+      ],
+      "id": "4f46b1d1-755f-4e3a-8fd6-b8bd6b90cbee",
+      "name": "Përgatit rezultatin e veprimit"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ {\n  ok: $json.ok,\n  code: $json.code,\n  tripId: $json.tripId,\n  action: $json.action,\n  message: $json.message\n} }}",
+        "options": {
+          "responseCode": "={{ $json.httpStatus }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2672,
+        -96
+      ],
+      "id": "9c09ad4d-1f90-4b68-897e-7bf481238066",
+      "name": "Kthe rezultatin e veprimit"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Merr veprimin e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo kërkesën e veprimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo kërkesën e veprimit": {
+      "main": [
+        [
+          {
+            "node": "Verifiko sesionin për veprimin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifiko sesionin për veprimin": {
+      "main": [
+        [
+          {
+            "node": "Autorizo veprimin e shoferit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Autorizo veprimin e shoferit": {
+      "main": [
+        [
+          {
+            "node": "Lejo veprimin e shoferit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lejo veprimin e shoferit?": {
+      "main": [
+        [
+          {
+            "node": "Lexo shoferin e veprimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo veprimin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo shoferin e veprimit": {
+      "main": [
+        [
+          {
+            "node": "Lexo udhëtimin e veprimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo udhëtimin e veprimit": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo pronësinë dhe gjendjen",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo pronësinë dhe gjendjen": {
+      "main": [
+        [
+          {
+            "node": "Udhëtimi lejon veprimin?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Udhëtimi lejon veprimin?": {
+      "main": [
+        [
+          {
+            "node": "Veprimi është përditësim çmimi? ",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo veprimin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Veprimi është përditësim çmimi? ": {
+      "main": [
+        [
+          {
+            "node": "Përditëso çmimin e udhëtimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Krijo tokenin e veprimit të agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përditëso çmimin e udhëtimit": {
+      "main": [
+        [
+          {
+            "node": "Përgatit rezultatin e çmimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit rezultatin e çmimit": {
+      "main": [
+        [
+          {
+            "node": "Kthe rezultatin e çmimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Krijo tokenin e veprimit të agjentit": {
+      "main": [
+        [
+          {
+            "node": "Tokeni i veprimit u krijua?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tokeni i veprimit u krijua?": {
+      "main": [
+        [
+          {
+            "node": "Dërgo veprimin te automatizimi",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Përgatit pengesën e veprimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit pengesën e veprimit": {
+      "main": [
+        [
+          {
+            "node": "Refuzo veprimin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dërgo veprimin te automatizimi": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo përfundimin e veprimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo përfundimin e veprimit": {
+      "main": [
+        [
+          {
+            "node": "Përgatit rezultatin e veprimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit rezultatin e veprimit": {
+      "main": [
+        [
+          {
+            "node": "Kthe rezultatin e veprimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "3163e4b4-ddb9-4800-b2fb-659433becaac",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"
+  },
+  "nodeGroups": [],
+  "id": "Ticjy28UjSMWxqAo",
+  "tags": []
+}

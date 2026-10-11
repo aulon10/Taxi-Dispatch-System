@@ -1,0 +1,679 @@
+{
+  "name": "06 - Të dhënat e agjentit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taxi-agent-data",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "69e094d5-f8e0-45f6-8e26-84e6911ca154",
+      "name": "Merr kërkesën e agjentit",
+      "webhookId": "53e5bd8c-db1e-42d4-9315-50dde892d7f1",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DGeVUfJDAHzcog72",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const crypto = require('crypto');\n\nconst token = $json.body?.sessionToken;\n\nconst validFormat =\n  typeof token === 'string' &&\n  /^[a-f0-9]{64}$/.test(token);\n\nreturn {\n  json: {\n    sessionHash: validFormat\n      ? crypto.createHash('sha256')\n          .update(token)\n          .digest('hex')\n      : null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        176,
+        0
+      ],
+      "id": "17f96911-13dd-4e73-ad50-6848e6ae4f59",
+      "name": "Kontrollo sesionin e kërkesës"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH current_session AS (\n  SELECT\n    s.actor_id,\n    s.role,\n    s.email,\n    s.expires_at\n  FROM public.taxi_auth_sessions s\n  WHERE s.token_hash = $1::TEXT\n    AND s.revoked_at IS NULL\n    AND s.expires_at > clock_timestamp()\n    AND s.role IN ('CLIENT', 'DRIVER')\n)\nSELECT\n  EXISTS (\n    SELECT 1 FROM current_session\n  ) AS valid_session,\n  (\n    SELECT row_to_json(s)\n    FROM current_session s\n  ) AS session;",
+        "options": {
+          "queryReplacement": "={{ [ $json.sessionHash ] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        352,
+        0
+      ],
+      "id": "8015a547-2873-4cf1-9a1c-ea2c6d4826dd",
+      "name": "Verifiko sesionin e agjentit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "531f6f3d-806b-40d1-a5df-c3024315a30a",
+              "leftValue": "={{ $json.valid_session }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        528,
+        0
+      ],
+      "id": "cdd4f156-8c01-4ff8-9d79-16f8788428c9",
+      "name": "Sesioni i agjentit është i vlefshëm?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": false,\n  \"code\": \"SESSION_INVALID\",\n  \"message\": \"Hyrja jote nuk është më e vlefshme. Hyr përsëri me kodin që të dërgohet në email.\"\n}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        688,
+        160
+      ],
+      "id": "5babfeaa-62c8-4d9b-8b46-65c78273d30b",
+      "name": "Njofto sesionin e pavlefshëm"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1442ac83-dbf4-43a9-a3e8-20882d845bc1",
+              "leftValue": "={{ $json.session.role }}",
+              "rightValue": "CLIENT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        688,
+        -112
+      ],
+      "id": "5a97df46-4307-4e89-b075-4bbbb22b193f",
+      "name": "Agjenti është klient?"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblubVmdPPIaPsbsM",
+          "mode": "list",
+          "cachedResultName": "Klientët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblubVmdPPIaPsbsM"
+        },
+        "id": "={{ $('Verifiko sesionin e agjentit').first().json.session.actor_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -192
+      ],
+      "id": "8813504e-743b-49c4-97bc-ea27b46314f2",
+      "name": "Lexo klientin e agjentit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "id": "={{ $('Verifiko sesionin e agjentit').first().json.session.actor_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -16
+      ],
+      "id": "7f3b93bb-681d-4437-ae95-e5266c6930d8",
+      "name": "Lexo shoferin e agjentit",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const session =\n  $('Verifiko sesionin e agjentit')\n    .first().json.session;\n\nconst record = $json;\nconst fields = record.fields ?? record;\n\nconst text = value =>\n  String(value ?? '').trim();\n\nconst savedEmail =\n  text(fields.Email).toLowerCase();\n\nconst status =\n  text(fields.Statusi).toUpperCase();\n\nconst isClient = session.role === 'CLIENT';\n\nconst profileAllowed =\n  record.id === session.actor_id &&\n  savedEmail === text(session.email).toLowerCase() &&\n  (\n    isClient\n      ? ['AKTIV', 'GUEST'].includes(status)\n      : ['I LIRË', 'I ZËNË', 'NË UDHËTIM', 'OFFLINE']\n          .includes(status)\n  );\n\nconst recordIds = value =>\n  Array.isArray(value)\n    ? [...new Set(value.filter(id =>\n        typeof id === 'string' &&\n        /^rec[a-zA-Z0-9]{14}$/.test(id)\n      ))]\n    : [];\n\nconst profile = profileAllowed\n  ? {\n      name: text(\n        fields[isClient\n          ? 'Emri i klientit'\n          : 'Emri i plotë']\n      ),\n      phone: text(fields['Numri i telefonit']),\n      status,\n      ...(isClient\n        ? {\n            totalTrips:\n              Number(fields['Numri total i udhëtimeve']) || 0\n          }\n        : {\n            city: text(fields.Qyteti),\n            car: text(fields.Makina),\n            plate: text(fields.Targa)\n          })\n    }\n  : null;\n\nreturn {\n  json: {\n    profileAllowed,\n    actorId: session.actor_id,\n    role: session.role,\n    profile,\n    tripIds: profileAllowed\n      ? recordIds(fields['Udhëtimet'])\n      : [],\n    assignmentIds: profileAllowed && !isClient\n      ? recordIds(fields['Caktimet'])\n      : []\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -96
+      ],
+      "id": "06fc5c99-3572-46db-a49a-a102a04f4072",
+      "name": "Kontrollo profilin e agjentit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a3c52356-a34e-47e4-b4b8-603ac149cbec",
+              "leftValue": "={{ $json.profileAllowed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1280,
+        -64
+      ],
+      "id": "e28d9cf6-5003-4dc5-84a8-64da59c0436d",
+      "name": "Profili i agjentit lejohet?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const context =\n  $('Kontrollo profilin e agjentit').first().json;\n\nconst ids = context.role === 'DRIVER'\n  ? context.assignmentIds\n  : [];\n\nconst groups = [];\n\nfor (let i = 0; i < ids.length; i += 50) {\n  groups.push(ids.slice(i, i + 50));\n}\n\nif (groups.length === 0) groups.push([]);\n\nreturn groups.map(group => ({\n  json: {\n    filterFormula: group.length\n      ? 'OR(' + group.map(id =>\n          'RECORD_ID()=' + JSON.stringify(id)\n        ).join(',') + ')'\n      : 'FALSE()'\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1456,
+        -144
+      ],
+      "id": "23cc73d5-e35f-44bb-8e7e-1f1fc3b77e8a",
+      "name": "Përgatit kërkimin e caktimeve"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblozuVXpNBYkcNRo",
+          "mode": "list",
+          "cachedResultName": "Caktimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblozuVXpNBYkcNRo"
+        },
+        "filterByFormula": "={{ $json.filterFormula }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1616,
+        -144
+      ],
+      "id": "5ed6b69e-d644-4305-a150-86f14c96f004",
+      "name": "Kërko caktimet e agjentit",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const context =\n  $('Kontrollo profilin e agjentit').first().json;\n\nconst allowedIds = new Set(context.assignmentIds);\n\nconst text = value => String(value ?? '').trim();\n\nconst assignments = context.role === 'DRIVER'\n  ? $input.all().flatMap(item => {\n      const record = item.json;\n      const fields = record.fields ?? record;\n\n      const trips = Array.isArray(fields['Udhëtimi'])\n        ? fields['Udhëtimi'].filter(id =>\n            typeof id === 'string' &&\n            /^rec[a-zA-Z0-9]{14}$/.test(id)\n          )\n        : [];\n\n      const belongsToDriver =\n        allowedIds.has(record.id) &&\n        Array.isArray(fields['Shoferi']) &&\n        fields['Shoferi'].includes(context.actorId) &&\n        trips.length === 1;\n\n      if (!belongsToDriver) return [];\n\n      return [{\n        recordId: record.id,\n        assignmentId: text(fields['Caktimi']),\n        tripId: trips[0],\n        decision: text(fields['Vendimi']).toUpperCase(),\n        assignedAt: text(fields['Data e caktimit'])\n      }];\n    })\n  : [];\n\nconst tripIds = [...new Set([\n  ...context.tripIds,\n  ...assignments.map(a => a.tripId)\n])];\n\nreturn [{\n  json: {\n    ...context,\n    assignments,\n    tripIds\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1808,
+        -144
+      ],
+      "id": "88bbed70-7706-4125-ac49-36d0afe51e87",
+      "name": "Përmblidh caktimet e agjentit"
+    },
+    {
+      "parameters": {
+        "jsCode": "const context =\n  $('Përmblidh caktimet e agjentit').first().json;\n\nconst groups = [];\n\nfor (let i = 0; i < context.tripIds.length; i += 50) {\n  groups.push(context.tripIds.slice(i, i + 50));\n}\n\nif (groups.length === 0) groups.push([]);\n\nreturn groups.map(group => ({\n  json: {\n    filterFormula: group.length\n      ? 'OR(' + group.map(id =>\n          'RECORD_ID()=' + JSON.stringify(id)\n        ).join(',') + ')'\n      : 'FALSE()'\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        -144
+      ],
+      "id": "942a837b-8eb3-4489-8d69-741568a6cf1d",
+      "name": "Përgatit kërkimin e udhëtimeve"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblEzpaCY2WbHfTpB",
+          "mode": "list",
+          "cachedResultName": "Udhëtimet",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblEzpaCY2WbHfTpB"
+        },
+        "filterByFormula": "={{ $json.filterFormula }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2144,
+        -144
+      ],
+      "id": "24731e6f-5fed-459b-ac3a-2406d74e34b4",
+      "name": "Kërko udhëtimet e agjentit",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const context =\n  $('Përmblidh caktimet e agjentit').first().json;\n\nconst isClient = context.role === 'CLIENT';\nconst allowedIds = new Set(context.tripIds);\nconst seen = new Set();\n\nconst text = value => String(value ?? '').trim();\nconst validId = value =>\n  typeof value === 'string' &&\n  /^rec[a-zA-Z0-9]{14}$/.test(value);\n\nconst trips = [];\n\nfor (const item of $input.all()) {\n  const record = item.json;\n  const fields = record.fields ?? record;\n\n  if (!allowedIds.has(record.id) || seen.has(record.id)) {\n    continue;\n  }\n\n  const ownLinks = fields[\n    isClient ? 'Klienti' : 'Shoferi'\n  ];\n\n  const ownsTrip =\n    Array.isArray(ownLinks) &&\n    ownLinks.includes(context.actorId);\n\n  const audits = context.assignments\n    .filter(a => a.tripId === record.id)\n    .sort((a, b) =>\n      (Date.parse(b.assignedAt) || 0) -\n      (Date.parse(a.assignedAt) || 0)\n    );\n\n  if (!ownsTrip) {\n    if (isClient || audits.length === 0) continue;\n\n    trips.push({\n      id: record.id,\n      number: fields['Udhëtimi'] || record.id,\n      status: audits[0].decision === 'REFUZO'\n        ? 'REFUZUAR'\n        : null,\n      ownDecision: audits[0].decision,\n      assignedAt: audits[0].assignedAt,\n      historicalOnly: true,\n      contactId: null\n    });\n\n    seen.add(record.id);\n    continue;\n  }\n\n  const contacts = fields[\n    isClient ? 'Shoferi' : 'Klienti'\n  ];\n\n  const contactId =\n    Array.isArray(contacts) &&\n    contacts.length === 1 &&\n    validId(contacts[0])\n      ? contacts[0]\n      : null;\n\n  trips.push({\n    id: record.id,\n    number: fields['Udhëtimi'] || record.id,\n    status: text(fields.Statusi).toUpperCase(),\n    city: text(fields.Qyteti),\n    pickup: text(fields['Lokacioni i marrjes']),\n    destination: text(fields.Destinacioni),\n    requestedAt: text(fields['Data e kërkesës']) || null,\n    startedAt: text(fields['Data e fillimit']) || null,\n    finishedAt: text(fields['Data e përfundimit']) || null,\n    price: typeof fields['Çmimi'] === 'number'\n      ? fields['Çmimi']\n      : null,\n    assignedAt: audits[0]?.assignedAt ?? null,\n    ownDecision: audits[0]?.decision ?? null,\n    historicalOnly: false,\n    contactId\n  });\n\n  seen.add(record.id);\n}\n\nconst contactIds = [...new Set(\n  trips.map(t => t.contactId).filter(validId)\n)];\n\nconst groups = [];\n\nfor (let i = 0; i < contactIds.length; i += 50) {\n  groups.push(contactIds.slice(i, i + 50));\n}\n\nif (groups.length === 0) groups.push([]);\n\nreturn groups.map(group => ({\n  json: {\n    ...context,\n    trips,\n    contactTableId: isClient\n      ? 'tblQtDtElgjUllUtA'\n      : 'tblubVmdPPIaPsbsM',\n    filterFormula: group.length\n      ? 'OR(' + group.map(id =>\n          'RECORD_ID()=' + JSON.stringify(id)\n        ).join(',') + ')'\n      : 'FALSE()'\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2304,
+        -144
+      ],
+      "id": "00cb2ee1-3035-4186-b897-4e1a83bb62cd",
+      "name": "Përgatit kontaktet e udhëtimeve"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "={{ $json.contactTableId }}",
+          "mode": "id"
+        },
+        "filterByFormula": "={{ $json.filterFormula }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        2464,
+        -144
+      ],
+      "id": "fb267f87-fce0-40b8-a337-801fcac052a3",
+      "name": "Kërko kontaktet e udhëtimeve",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const context =\n  $('Përgatit kontaktet e udhëtimeve').first().json;\n\nconst isClient = context.role === 'CLIENT';\nconst text = value => String(value ?? '').trim();\n\nconst allowedContacts = new Set(\n  context.trips.map(t => t.contactId).filter(Boolean)\n);\n\nconst contacts = new Map();\n\nfor (const item of $input.all()) {\n  const record = item.json;\n  if (!allowedContacts.has(record.id)) continue;\n\n  const fields = record.fields ?? record;\n\n  contacts.set(record.id, isClient\n    ? {\n        name: text(fields['Emri i plotë']),\n        phone: text(fields['Numri i telefonit']),\n        car: text(fields.Makina),\n        plate: text(fields.Targa)\n      }\n    : {\n        name: text(fields['Emri i klientit']),\n        phone: text(fields['Numri i telefonit'])\n      }\n  );\n}\n\nconst trips = context.trips.map(trip => {\n  const { contactId, ...details } = trip;\n  const contact = contacts.get(contactId) ?? null;\n\n  return {\n    ...details,\n    ...(isClient\n      ? { driver: contact }\n      : { customer: contact })\n  };\n});\n\nconst timezone = 'Europe/Belgrade';\n\nconst formatter = new Intl.DateTimeFormat('en-CA', {\n  timeZone: timezone,\n  year: 'numeric',\n  month: '2-digit',\n  day: '2-digit'\n});\n\nconst dayKey = value => {\n  if (!value) return null;\n\n  const date = new Date(value);\n  if (!Number.isFinite(date.getTime())) return null;\n\n  const parts = Object.fromEntries(\n    formatter.formatToParts(date)\n      .map(part => [part.type, part.value])\n  );\n\n  return `${parts.year}-${parts.month}-${parts.day}`;\n};\n\nconst checkedAt = new Date().toISOString();\nconst today = dayKey(checkedAt);\nconst time = value => Date.parse(value) || 0;\n\nconst activeTrips = trips.filter(trip =>\n  !trip.historicalOnly &&\n  ['KËRKUAR', 'CAKTUAR', 'PRANUAR', 'NË UDHËTIM']\n    .includes(trip.status)\n);\n\nconst completedTrips = trips\n  .filter(trip =>\n    !trip.historicalOnly &&\n    trip.status === 'PËRFUNDUAR'\n  )\n  .sort((a, b) =>\n    time(b.finishedAt) - time(a.finishedAt)\n  );\n\nconst recentTrips = [...trips]\n  .sort((a, b) =>\n    time(b.requestedAt || b.assignedAt || b.finishedAt) -\n    time(a.requestedAt || a.assignedAt || a.finishedAt)\n  )\n  .slice(0, 10);\n\nconst tripNumbers = new Map(\n  trips.map(trip => [trip.id, trip.number])\n);\n\nconst refusedAssignments = isClient\n  ? []\n  : context.assignments\n      .filter(a => a.decision === 'REFUZO')\n      .map(a => ({\n        assignmentId: a.assignmentId,\n        tripId: a.tripId,\n        tripNumber: tripNumbers.get(a.tripId) ?? null,\n        assignedAt: a.assignedAt,\n        decision: a.decision\n      }))\n      .sort((a, b) =>\n        time(b.assignedAt) - time(a.assignedAt)\n      );\n\nconst stats = {\n  totalCompletedTrips: isClient\n    ? context.profile.totalTrips\n    : completedTrips.length,\n  activeTripsCount: activeTrips.length,\n  completedToday: completedTrips.filter(trip =>\n    dayKey(trip.finishedAt) === today\n  ).length\n};\n\nif (!isClient) {\n  stats.assignedToday = new Set(\n    context.assignments\n      .filter(a => dayKey(a.assignedAt) === today)\n      .map(a => a.tripId)\n  ).size;\n\n  stats.refusedTripsCount = new Set(\n    refusedAssignments.map(a => a.tripId)\n  ).size;\n}\n\nreturn [{\n  json: {\n    ok: true,\n    role: context.role,\n    checkedAt,\n    timezone,\n    today,\n    profile: context.profile,\n    stats,\n    trips,\n    activeTrips,\n    currentTrip: activeTrips.find(trip =>\n      trip.status === 'NË UDHËTIM'\n    ) ?? null,\n    nextTrip: [...activeTrips]\n      .filter(trip =>\n        ['CAKTUAR', 'PRANUAR'].includes(trip.status)\n      )\n      .sort((a, b) =>\n        time(a.requestedAt) - time(b.requestedAt)\n      )[0] ?? null,\n    recentTrips,\n    completedTrips,\n    refusedAssignments\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2624,
+        -144
+      ],
+      "id": "470cc8da-6de1-4e6b-b16b-60e4fd8db464",
+      "name": "Përgatit përgjigjen e agjentit"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        2816,
+        -144
+      ],
+      "id": "00356662-7db3-4c8c-bcc6-0cfdc2a74183",
+      "name": "Kthe të dhënat e agjentit"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Merr kërkesën e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo sesionin e kërkesës",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo sesionin e kërkesës": {
+      "main": [
+        [
+          {
+            "node": "Verifiko sesionin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifiko sesionin e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Sesioni i agjentit është i vlefshëm?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sesioni i agjentit është i vlefshëm?": {
+      "main": [
+        [
+          {
+            "node": "Agjenti është klient?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto sesionin e pavlefshëm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agjenti është klient?": {
+      "main": [
+        [
+          {
+            "node": "Lexo klientin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Lexo shoferin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo shoferin e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo profilin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lexo klientin e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo profilin e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo profilin e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Profili i agjentit lejohet?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Profili i agjentit lejohet?": {
+      "main": [
+        [
+          {
+            "node": "Përgatit kërkimin e caktimeve",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto sesionin e pavlefshëm",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit kërkimin e caktimeve": {
+      "main": [
+        [
+          {
+            "node": "Kërko caktimet e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërko caktimet e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Përmblidh caktimet e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përmblidh caktimet e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Përgatit kërkimin e udhëtimeve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit kërkimin e udhëtimeve": {
+      "main": [
+        [
+          {
+            "node": "Kërko udhëtimet e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërko udhëtimet e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Përgatit kontaktet e udhëtimeve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit kontaktet e udhëtimeve": {
+      "main": [
+        [
+          {
+            "node": "Kërko kontaktet e udhëtimeve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërko kontaktet e udhëtimeve": {
+      "main": [
+        [
+          {
+            "node": "Përgatit përgjigjen e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit përgjigjen e agjentit": {
+      "main": [
+        [
+          {
+            "node": "Kthe të dhënat e agjentit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "2ef04580-0c13-4099-9709-bd10f1cb736d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"
+  },
+  "nodeGroups": [],
+  "id": "bXuNuUnvCQvOtcOv",
+  "tags": []
+}

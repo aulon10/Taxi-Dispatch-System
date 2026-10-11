@@ -3,69 +3,6 @@
   "nodes": [
     {
       "parameters": {
-        "formTitle": "Kërko taksi",
-        "formDescription": "Vendos të dhënat e kontaktit dhe itinerarin.",
-        "formFields": {
-          "values": [
-            {
-              "fieldLabel": "Emri dhe mbiemri",
-              "fieldName": "customerName",
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Numri i telefonit",
-              "fieldName": "phone",
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Email",
-              "fieldType": "email",
-              "fieldName": "email",
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Qyteti i nisjes",
-              "fieldType": "dropdown",
-              "fieldName": "city",
-              "fieldOptions": {
-                "values": [
-                  {
-                    "option": "Prishtinë"
-                  },
-                  {
-                    "option": "Prizren"
-                  }
-                ]
-              },
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Lokacioni i marrjes",
-              "fieldName": "pickup",
-              "requiredField": true
-            },
-            {
-              "fieldLabel": "Destinacioni",
-              "fieldName": "destination",
-              "requiredField": true
-            }
-          ]
-        },
-        "responseMode": "lastNode",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.6,
-      "position": [
-        0,
-        0
-      ],
-      "id": "b266f78b-72a2-41a2-9bab-03150b33997c",
-      "name": "On form submission",
-      "webhookId": "8eb4a7f8-c19d-4524-8543-9616a0233516"
-    },
-    {
-      "parameters": {
         "conditions": {
           "options": {
             "caseSensitive": true,
@@ -111,59 +48,6 @@
       ],
       "id": "d5294be3-7e3b-4a6f-9c0a-135ee6dbc2f5",
       "name": "Normalizo dhe valido kërkesën"
-    },
-    {
-      "parameters": {
-        "operation": "completion",
-        "completionTitle": "Kërkesa nuk u regjistrua",
-        "completionMessage": "={{ $json.errors.join('<br>') }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.form",
-      "typeVersion": 2.5,
-      "position": [
-        496,
-        128
-      ],
-      "id": "89b10013-a427-4899-b947-b6e11bcc2511",
-      "name": "Form",
-      "webhookId": "57ded242-4372-4da7-9e06-bfe52af8b238"
-    },
-    {
-      "parameters": {
-        "operation": "search",
-        "base": {
-          "__rl": true,
-          "value": "app1XhXeV9bbLu4JW",
-          "mode": "list",
-          "cachedResultName": "Taxi Dispatch",
-          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
-        },
-        "table": {
-          "__rl": true,
-          "value": "tblubVmdPPIaPsbsM",
-          "mode": "list",
-          "cachedResultName": "Klientët",
-          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblubVmdPPIaPsbsM"
-        },
-        "filterByFormula": "={{ 'OR({Numri i telefonit}=' + JSON.stringify($json.phone) + ',LOWER(TRIM({Email}))=' + JSON.stringify($json.email) + ')' }}",
-        "options": {}
-      },
-      "type": "n8n-nodes-base.airtable",
-      "typeVersion": 2.2,
-      "position": [
-        496,
-        -112
-      ],
-      "id": "2f1c4ae2-e0e8-4b67-83bf-97c281ee410d",
-      "name": "Search records",
-      "alwaysOutputData": true,
-      "credentials": {
-        "airtableTokenApi": {
-          "id": "SqI0HRZvCG46bIpc",
-          "name": "Airtable - Taxi Dispatch"
-        }
-      }
     },
     {
       "parameters": {
@@ -504,8 +388,8 @@
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.2,
       "position": [
-        1040,
-        -112
+        1008,
+        -240
       ],
       "id": "e559b4a4-7043-4531-830c-accf40ff638d",
       "name": "Krijo udhëtimin e kërkuar",
@@ -539,8 +423,8 @@
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.2,
       "position": [
-        1200,
-        -112
+        1184,
+        -240
       ],
       "id": "87414375-ea06-4faf-8586-9ac9fd78b6ff",
       "name": "Kërko shofer të lirë",
@@ -1174,7 +1058,7 @@
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.2,
       "position": [
-        2304,
+        2336,
         -224
       ],
       "id": "032975cd-8a29-424a-9b60-45332db1b63a",
@@ -1191,7 +1075,7 @@
         "sendTo": "={{ ($json.fields ?? $json).Email }}",
         "subject": "Kërkesë e re për udhëtim",
         "emailType": "text",
-        "message": "={{ (() => {\n  const request =\n    $('Normalizo dhe valido kërkesën').first().json;\n\n  const tokens =\n    $('Krijo tokenët e përgjigjes').first().json.actionTokens;\n\n  const url =\n    'https://aulon10.app.n8n.cloud/webhook-test/taxi-driver-confirm';\n\n  return [\n    'Ke një kërkesë të re për udhëtim:',\n    '',\n    `Klienti: ${request.customerName}`,\n    `Telefoni: ${request.phone}`,\n    `Qyteti: ${request.city}`,\n    `Nisja: ${request.pickup}`,\n    `Destinacioni: ${request.destination}`,\n    '',\n    'PRANO:',\n    `${url}?token=${tokens.PRANO.token}`,\n    '',\n    'REFUZO:',\n    `${url}?token=${tokens.REFUZO.token}`,\n    '',\n    'Hape linkun përkatës dhe konfirmo vendimin.'\n  ].join('\\n');\n})() }}",
+        "message": "={{ (() => {\n  const request =\n    $('Normalizo dhe valido kërkesën').first().json;\n\n  const tokens =\n    $('Krijo tokenët e përgjigjes').first().json.actionTokens;\n\n  const url =\n    'https://aulon10.app.n8n.cloud/webhook/taxi-driver-confirm';\n\n  return [\n    'Ke një kërkesë të re për udhëtim:',\n    '',\n    `Klienti: ${request.customerName}`,\n    `Telefoni: ${request.phone}`,\n    `Qyteti: ${request.city}`,\n    `Nisja: ${request.pickup}`,\n    `Destinacioni: ${request.destination}`,\n    '',\n    'PRANO:',\n    `${url}?token=${tokens.PRANO.token}`,\n    '',\n    'REFUZO:',\n    `${url}?token=${tokens.REFUZO.token}`,\n    '',\n    'Hape linkun përkatës dhe konfirmo vendimin.'\n  ].join('\\n');\n})() }}",
         "options": {}
       },
       "type": "n8n-nodes-base.gmail",
@@ -1212,50 +1096,16 @@
     },
     {
       "parameters": {
-        "conditions": {
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "strict",
-            "version": 3
-          },
-          "conditions": [
-            {
-              "id": "48ce1268-a92d-45da-971e-a0659473ed5c",
-              "leftValue": "={{ $json.id ?? '' }}",
-              "rightValue": "",
-              "operator": {
-                "type": "string",
-                "operation": "notEmpty",
-                "singleValue": true
-              }
-            }
-          ],
-          "combinator": "and"
-        },
-        "options": {}
-      },
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        1360,
-        -112
-      ],
-      "id": "8137dd51-13f9-4b7e-919a-499901c7bb15",
-      "name": "If"
-    },
-    {
-      "parameters": {
         "operation": "completion",
-        "completionTitle": "Nuk ka shofer të lirë",
-        "completionMessage": "Kërkesa u regjistrua, por aktualisht nuk ka shofer të lirë në qytetin tënd. Udhëtimi ende nuk është konfirmuar.",
+        "completionTitle": "Kërkesa është në pritje",
+        "completionMessage": "Kërkesa u regjistrua, por ende nuk është caktuar një shofer. Udhëtimi mbetet në pritje të caktimit.",
         "options": {}
       },
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        1504,
-        16
+        1696,
+        80
       ],
       "id": "5e51b7e8-9ee0-4a3d-95b6-5282a102d82f",
       "name": "Njofto klientin — pa shofer",
@@ -1473,7 +1323,7 @@
       "type": "n8n-nodes-base.airtable",
       "typeVersion": 2.2,
       "position": [
-        2464,
+        2480,
         -224
       ],
       "id": "f794d65d-b16c-493d-9ee4-0546770808f8",
@@ -1716,21 +1566,347 @@
           "name": "Airtable - Taxi Dispatch"
         }
       }
+    },
+    {
+      "parameters": {
+        "formTitle": "Kërko taksi",
+        "formDescription": "Vendos të dhënat e kontaktit dhe itinerarin.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Emri dhe mbiemri",
+              "fieldName": "customerName",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Numri i telefonit",
+              "fieldName": "phone",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Email",
+              "fieldType": "email",
+              "fieldName": "email",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Qyteti i nisjes",
+              "fieldType": "dropdown",
+              "fieldName": "city",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Prishtinë"
+                  },
+                  {
+                    "option": "Prizren"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Lokacioni i marrjes",
+              "fieldName": "pickup",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Destinacioni",
+              "fieldName": "destination",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b266f78b-72a2-41a2-9bab-03150b33997c",
+      "name": "Merr kërkesën e udhëtimit",
+      "webhookId": "8eb4a7f8-c19d-4524-8543-9616a0233516"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblubVmdPPIaPsbsM",
+          "mode": "list",
+          "cachedResultName": "Klientët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblubVmdPPIaPsbsM"
+        },
+        "filterByFormula": "={{ 'OR({Numri i telefonit}=' + JSON.stringify($json.phone) + ',LOWER(TRIM({Email}))=' + JSON.stringify($json.email) + ')' }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        496,
+        -112
+      ],
+      "id": "2f1c4ae2-e0e8-4b67-83bf-97c281ee410d",
+      "name": "Kërko klientin sipas telefonit ose email-it",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Kërkesa nuk u regjistrua",
+        "completionMessage": "={{ $json.errors.join('<br>') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        496,
+        128
+      ],
+      "id": "89b10013-a427-4899-b947-b6e11bcc2511",
+      "name": "Shfaq gabimet e kërkesës",
+      "webhookId": "57ded242-4372-4da7-9e06-bfe52af8b238"
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblubVmdPPIaPsbsM",
+          "mode": "list",
+          "cachedResultName": "Klientët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblubVmdPPIaPsbsM"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Emri i klientit": "={{ $json.customerName }}",
+            "Statusi": "Guest",
+            "Numri i telefonit": "={{ $json.phone }}",
+            "Email": "={{ $json.email }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Emri i klientit",
+              "displayName": "Emri i klientit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Statusi",
+              "displayName": "Statusi",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "options",
+              "options": [
+                {
+                  "name": "Aktiv",
+                  "value": "Aktiv"
+                },
+                {
+                  "name": "I bllokuar",
+                  "value": "I bllokuar"
+                },
+                {
+                  "name": "Guest",
+                  "value": "Guest"
+                }
+              ],
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Numri i telefonit",
+              "displayName": "Numri i telefonit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "Data e krijimit",
+              "displayName": "Data e krijimit",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            },
+            {
+              "id": "Udhëtimet",
+              "displayName": "Udhëtimet",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "array",
+              "readOnly": false,
+              "removed": true
+            },
+            {
+              "id": "Numri total i udhëtimeve",
+              "displayName": "Numri total i udhëtimeve",
+              "required": false,
+              "defaultMatch": false,
+              "canBeUsedToMatch": true,
+              "display": true,
+              "type": "string",
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        1008,
+        112
+      ],
+      "id": "231b9aa4-8800-456c-814f-84947d056275",
+      "name": "Krijo klientin e ri",
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const request = $('Vlerëso klientin').first().json;\n\nif (\n  typeof $json.id !== 'string' ||\n  !/^rec[a-zA-Z0-9]{14}$/.test($json.id)\n) {\n  throw new Error('Klienti i ri nuk u krijua.');\n}\n\nreturn {\n  json: {\n    ...request,\n    customerDecision: 'existing',\n    customerId: $json.id,\n    customerStatus: 'Guest'\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        112
+      ],
+      "id": "a83e7bf9-1f9b-4f66-a30a-722441b390ec",
+      "name": "Përgatit kërkesën e klientit të ri"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Kontrollo të dhënat e kontaktit",
+        "completionMessage": "Telefoni ose email-i përputhet me të dhëna ekzistuese që nuk përputhen plotësisht me kërkesën. Kontrolloji ose kontakto shërbimin. Kërkesa nuk u regjistrua.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1008,
+        -80
+      ],
+      "id": "aa0f8868-a01d-4772-a5c0-034f8d17349e",
+      "name": "Njofto konfliktin e të dhënave",
+      "webhookId": "e7f7219b-42b9-4f0f-8e88-3b1a3a1a44d9"
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Kërkesa nuk u regjistrua",
+        "completionMessage": "Llogaria jote është e bllokuar. Kontakto shërbimin për sqarim.",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1184,
+        -64
+      ],
+      "id": "209c434e-d31d-4a88-9b9d-69f00b2a6754",
+      "name": "Njofto klientin e bllokuar",
+      "webhookId": "3344e382-00f1-4bed-a38c-6d38a5a43aa8"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "48ce1268-a92d-45da-971e-a0659473ed5c",
+              "leftValue": "={{ $json.id ?? '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1344,
+        -240
+      ],
+      "id": "8137dd51-13f9-4b7e-919a-499901c7bb15",
+      "name": "U gjet shofer i lirë?"
     }
   ],
   "pinData": {},
   "connections": {
-    "On form submission": {
-      "main": [
-        [
-          {
-            "node": "Normalizo dhe valido kërkesën",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Normalizo dhe valido kërkesën": {
       "main": [
         [
@@ -1746,25 +1922,14 @@
       "main": [
         [
           {
-            "node": "Search records",
+            "node": "Kërko klientin sipas telefonit ose email-it",
             "type": "main",
             "index": 0
           }
         ],
         [
           {
-            "node": "Form",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Search records": {
-      "main": [
-        [
-          {
-            "node": "Vlerëso klientin",
+            "node": "Shfaq gabimet e kërkesës",
             "type": "main",
             "index": 0
           }
@@ -1790,6 +1955,27 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Krijo klientin e ri",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto konfliktin e të dhënave",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto klientin e bllokuar",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -1808,7 +1994,7 @@
       "main": [
         [
           {
-            "node": "If",
+            "node": "U gjet shofer i lirë?",
             "type": "main",
             "index": 0
           }
@@ -1848,24 +2034,6 @@
         ]
       ]
     },
-    "If": {
-      "main": [
-        [
-          {
-            "node": "Zgjidh kandidatin për rezervim",
-            "type": "main",
-            "index": 0
-          }
-        ],
-        [
-          {
-            "node": "Njofto klientin — pa shofer",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "Zgjidh kandidatin për rezervim": {
       "main": [
         [
@@ -1893,6 +2061,13 @@
         [
           {
             "node": "Lidh shoferin me udhëtimin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto klientin — pa shofer",
             "type": "main",
             "index": 0
           }
@@ -1971,14 +2146,76 @@
           }
         ]
       ]
+    },
+    "Merr kërkesën e udhëtimit": {
+      "main": [
+        [
+          {
+            "node": "Normalizo dhe valido kërkesën",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërko klientin sipas telefonit ose email-it": {
+      "main": [
+        [
+          {
+            "node": "Vlerëso klientin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Krijo klientin e ri": {
+      "main": [
+        [
+          {
+            "node": "Përgatit kërkesën e klientit të ri",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Përgatit kërkesën e klientit të ri": {
+      "main": [
+        [
+          {
+            "node": "Krijo udhëtimin e kërkuar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "U gjet shofer i lirë?": {
+      "main": [
+        [
+          {
+            "node": "Zgjidh kandidatin për rezervim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto klientin — pa shofer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "eb78f7ee-483d-4290-b72b-f7231252131c",
+  "versionId": "bf555f81-adb3-4b8f-b30a-280330e4c29a",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"

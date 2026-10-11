@@ -1,0 +1,939 @@
+{
+  "name": "05 - Verifikimi i përdoruesit",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taxi-agent-auth-start",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        -16
+      ],
+      "id": "ab68f1dc-2dcc-4d69-9252-9a451c4a3f91",
+      "name": "Merr kërkesën e kodit dhe vendos",
+      "webhookId": "4f2dbe4e-8946-484d-bfde-4615e7db41c5",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DGeVUfJDAHzcog72",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? {};\n\nconst role = typeof body.role === 'string'\n  ? body.role.trim().toUpperCase()\n  : '';\n\nconst email = typeof body.email === 'string'\n  ? body.email.trim().toLowerCase()\n  : '';\n\nconst validRole = ['CLIENT', 'DRIVER'].includes(role);\n\nconst validEmail =\n  email.length <= 254 &&\n  /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email);\n\nreturn {\n  json: {\n    role,\n    email,\n    validRequest: validRole && validEmail\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -16
+      ],
+      "id": "89ac196b-64bf-4b1a-900c-ad73cf4ea91e",
+      "name": "Kontrollo kërkesën e verifikimit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "9a337930-7d62-48a4-a960-4829d740bf41",
+              "leftValue": "={{ $json.validRequest }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        112,
+        -16
+      ],
+      "id": "1d314f61-53ca-486b-a03b-1c424ed17f6c",
+      "name": "Kërkesa e verifikimit është e vlefshme?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": false,\n  \"code\": \"INVALID_REQUEST\",\n  \"message\": \"Zgjidh rolin dhe shkruaj një email të vlefshëm.\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        272,
+        64
+      ],
+      "id": "34513a04-bb31-4efa-bc30-b7b03eb8d5a6",
+      "name": "Refuzo kërkesën e verifikimit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "0e627417-43c0-4ab4-81c0-acea73c515f7",
+              "leftValue": "={{ $json.role }}",
+              "rightValue": "CLIENT",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        272,
+        -96
+      ],
+      "id": "fd8ae68c-be0e-4ec5-966b-de9a66b2c70f",
+      "name": "Roli është klient?"
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblubVmdPPIaPsbsM",
+          "mode": "list",
+          "cachedResultName": "Klientët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblubVmdPPIaPsbsM"
+        },
+        "filterByFormula": "={{ 'LOWER(TRIM({Email} & \"\")) = ' + JSON.stringify($('Kontrollo kërkesën e verifikimit').first().json.email) }}",
+        "returnAll": false,
+        "limit": 2,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        -208
+      ],
+      "id": "6316552c-ee1e-4531-8b5b-0023138db0d7",
+      "name": "Kërko klientin për verifikim",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "search",
+        "base": {
+          "__rl": true,
+          "value": "app1XhXeV9bbLu4JW",
+          "mode": "list",
+          "cachedResultName": "Taxi Dispatch",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW"
+        },
+        "table": {
+          "__rl": true,
+          "value": "tblQtDtElgjUllUtA",
+          "mode": "list",
+          "cachedResultName": "Shoferët",
+          "cachedResultUrl": "https://airtable.com/app1XhXeV9bbLu4JW/tblQtDtElgjUllUtA"
+        },
+        "filterByFormula": "={{ 'LOWER(TRIM({Email} & \"\")) = ' + JSON.stringify($('Kontrollo kërkesën e verifikimit').first().json.email) }}",
+        "returnAll": false,
+        "limit": 2,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.airtable",
+      "typeVersion": 2.2,
+      "position": [
+        432,
+        -16
+      ],
+      "id": "a0ba99c0-eaa8-4126-804c-966f917a9d80",
+      "name": "Kërko shoferin për verifikim",
+      "alwaysOutputData": true,
+      "credentials": {
+        "airtableTokenApi": {
+          "id": "SqI0HRZvCG46bIpc",
+          "name": "Airtable - Taxi Dispatch"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const request =\n  $('Kontrollo kërkesën e verifikimit').first().json;\n\nconst records = $input.all()\n  .map(item => item.json)\n  .filter(record =>\n    typeof record.id === 'string' &&\n    record.id.startsWith('rec')\n  );\n\nconst record = records.length === 1 ? records[0] : null;\nconst fields = record ? (record.fields ?? record) : {};\n\nconst savedEmail = String(fields.Email ?? '')\n  .trim()\n  .toLowerCase();\n\nconst status = String(fields.Statusi ?? '')\n  .trim()\n  .toUpperCase();\n\nconst clientAllowed =\n  request.role !== 'CLIENT' ||\n  ['AKTIV', 'GUEST'].includes(status);\n\nconst canSendCode =\n  record !== null &&\n  savedEmail === request.email &&\n  clientAllowed;\n\nreturn [{\n  json: {\n    role: request.role,\n    email: request.email,\n    matchesFound: records.length,\n    canSendCode,\n    actorId: canSendCode ? record.id : null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        -112
+      ],
+      "id": "99f8eba0-9734-4c54-aeaf-901cb2a2c1ee",
+      "name": "Kontrollo llogarinë për kodin"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "30865480-8018-4470-a35a-361fa4c54413",
+              "leftValue": "={{ $json.canSendCode }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        784,
+        -112
+      ],
+      "id": "5de66707-db28-40c0-848b-07df9dfd4576",
+      "name": "Lejo dërgimin e kodit?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": false,\n  \"code\": \"ACCOUNT_UNAVAILABLE\",\n  \"message\": \"Nuk mund të dërgohet kodi për këtë email dhe rol. Kontrollo të dhënat ose kontakto dispeçerin.\"\n}",
+        "options": {
+          "responseCode": 403
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        944,
+        -16
+      ],
+      "id": "d2690d7f-68ff-43b9-9085-092b07c1837a",
+      "name": "Njofto pengesën në verifikim"
+    },
+    {
+      "parameters": {
+        "jsCode": "const crypto = require('crypto');\n\nreturn {\n  json: {\n    ...$json,\n    verificationCode: String(\n      crypto.randomInt(100000, 1000000)\n    )\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        944,
+        -208
+      ],
+      "id": "64d15721-a323-4e39-b31c-e573b7c1c7f5",
+      "name": "Gjenero kodin e verifikimit"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT *\nFROM public.taxi_create_auth_challenge(\n  $1::TEXT,\n  $2::TEXT,\n  $3::TEXT,\n  $4::TEXT\n);",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.email,\n  $json.actorId,\n  $json.role,\n  $json.verificationCode\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1104,
+        -208
+      ],
+      "id": "fd06e732-9a6e-45f1-b692-92ae4d165501",
+      "name": "Regjistro kodin e verifikimit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "375eb44e-78cb-4ae8-9f58-aaf5af43c6a1",
+              "leftValue": "={{ $json.challenge_created }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1264,
+        -208
+      ],
+      "id": "89f19461-f81e-4c58-b434-6a389e66ff52",
+      "name": "Kodi u krijua?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": false,\n  \"code\": \"RATE_LIMITED\",\n  \"message\": \"Ke kërkuar kod shumë shpesh. Provo përsëri më vonë.\"\n}",
+        "options": {
+          "responseCode": 429
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1424,
+        -128
+      ],
+      "id": "832a174c-0890-4d7b-88fd-3dd929ba3875",
+      "name": "Njofto kufirin e kodeve"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $('Gjenero kodin e verifikimit').first().json.email }}",
+        "subject": "Kodi i hyrjes – Taxi Dispatch",
+        "emailType": "text",
+        "message": "={{ 'Përshëndetje,\\n\\nKodi yt për të hyrë në Taxi Dispatch është:\\n\\n' + $('Gjenero kodin e verifikimit').first().json.verificationCode + '\\n\\nShkruaje këtë kod në bisedë. Kodi vlen për 10 minuta.\\n\\nNëse nuk e ke kërkuar ti, mund ta shpërfillësh këtë email.' }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1424,
+        -336
+      ],
+      "id": "a25659a1-77db-4ad6-9feb-7a1314aeaa21",
+      "name": "Dërgo kodin e verifikimit",
+      "webhookId": "d83b30e4-5aae-4aa9-9fef-ef54b7aed8b4",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "K6LW9H2NlJrGHInV",
+          "name": "Gmail account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH sent AS (\n  UPDATE public.taxi_auth_challenges\n  SET delivery_status = 'sent'\n  WHERE challenge_id = $1::UUID\n    AND delivery_status = 'pending'\n    AND consumed_at IS NULL\n    AND expires_at > clock_timestamp()\n  RETURNING challenge_id, expires_at\n)\nSELECT\n  COUNT(*)::INTEGER AS sent_count,\n  (SELECT challenge_id FROM sent) AS challenge_id,\n  (SELECT expires_at FROM sent) AS expires_at\nFROM sent;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Regjistro kodin e verifikimit').first().json.challenge_id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1600,
+        -448
+      ],
+      "id": "b4ff527f-880d-4c57-a221-71795696c18a",
+      "name": "Regjistro dërgimin e kodit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "54b7966e-4736-4d62-8b3f-d1858f1ce49c",
+              "leftValue": "={{ $json.sent_count }}",
+              "rightValue": 1,
+              "operator": {
+                "type": "number",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1744,
+        -368
+      ],
+      "id": "871deed6-807e-4b64-8666-3ffe2c6ed947",
+      "name": "Dërgimi u regjistrua?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ ({\n  ok: true,\n  challengeId: $json.challenge_id,\n  expiresAt: $json.expires_at,\n  message: 'Kodi u dërgua në email. Shkruaje në bisedë.'\n}) }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1920,
+        -448
+      ],
+      "id": "58dd7249-1b86-428a-ae3f-1dda25ca16d2",
+      "name": "Kthe konfirmimin e dërgimit"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": false,\n  \"code\": \"DELIVERY_FAILED\",\n  \"message\": \"Dërgimi i kodit nuk u konfirmua. Provo përsëri më vonë.\"\n}",
+        "options": {
+          "responseCode": 503
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1920,
+        -288
+      ],
+      "id": "708f4c55-1470-4037-8c03-30cb36950949",
+      "name": "Njofto dështimin e dërgimit"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH failed AS (\n  UPDATE public.taxi_auth_challenges\n  SET\n    delivery_status = 'failed',\n    consumed_at = clock_timestamp()\n  WHERE challenge_id = $1::UUID\n    AND delivery_status = 'pending'\n    AND consumed_at IS NULL\n  RETURNING challenge_id\n)\nSELECT COUNT(*)::INTEGER AS failed_count\nFROM failed;",
+        "options": {
+          "queryReplacement": "={{ [\n  $('Regjistro kodin e verifikimit').first().json.challenge_id\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        1600,
+        -288
+      ],
+      "id": "76d49050-2842-4cf7-bb64-5a9d88c7507d",
+      "name": "Shëno dërgimin e dështuar",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "taxi-agent-auth-verify",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -240,
+        304
+      ],
+      "id": "251b60c6-b3a3-4f43-9ddf-1a98fdfa1ad7",
+      "name": "Merr kodin për verifikim",
+      "webhookId": "aeee5c34-9a23-427d-8280-ff9f9775386c",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "DGeVUfJDAHzcog72",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const body = $json.body ?? {};\n\nconst challengeId =\n  typeof body.challengeId === 'string'\n    ? body.challengeId.trim().toLowerCase()\n    : '';\n\nconst code =\n  typeof body.code === 'string'\n    ? body.code.trim()\n    : '';\n\nconst validChallengeId =\n  /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/\n    .test(challengeId);\n\nconst validCode = /^[0-9]{6}$/.test(code);\n\nreturn {\n  json: {\n    validRequest: validChallengeId && validCode,\n    challengeId: validChallengeId ? challengeId : null,\n    code: validCode ? code : null\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        304
+      ],
+      "id": "20338271-9396-4380-a66d-57980ff5b045",
+      "name": "Kontrollo formatin e kodit"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "4dc68945-3f72-48e8-b9bd-6ef8e526ed9f",
+              "leftValue": "={{ $json.validRequest }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        144,
+        304
+      ],
+      "id": "e75f4e03-2d1c-40a8-a344-805267e1489d",
+      "name": "Formati i kodit është i vlefshëm?"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"ok\": false,\n  \"code\": \"INVALID_REQUEST\",\n  \"message\": \"Shkruaj kodin gjashtëshifror që të erdhi në email.\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        320,
+        400
+      ],
+      "id": "af6887e5-2c71-4ece-ae80-c557b3256ab1",
+      "name": "Refuzo formatin e kodit"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        576
+      ],
+      "id": "921d24a7-85c9-4303-82c4-c5b140365fdc",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE OR REPLACE FUNCTION public.taxi_verify_auth_code(\n  p_challenge_id UUID,\n  p_code TEXT\n)\nRETURNS JSONB\nLANGUAGE plpgsql\nSET search_path = public, pg_temp\nAS $$\nDECLARE\n  v_challenge public.taxi_auth_challenges%ROWTYPE;\n  v_now TIMESTAMPTZ;\n  v_matches BOOLEAN;\n  v_attempts INTEGER;\n  v_token TEXT;\n  v_expires TIMESTAMPTZ;\nBEGIN\n  IF p_challenge_id IS NULL\n     OR p_code IS NULL\n     OR p_code !~ '^[0-9]{6}$' THEN\n    RETURN jsonb_build_object(\n      'ok', false,\n      'code', 'INVALID_REQUEST',\n      'message', 'Shkruaj kodin gjashtëshifror.'\n    );\n  END IF;\n\n  SELECT c.*\n  INTO v_challenge\n  FROM public.taxi_auth_challenges c\n  WHERE c.challenge_id = p_challenge_id\n  FOR UPDATE;\n\n  IF NOT FOUND THEN\n    RETURN jsonb_build_object(\n      'ok', false,\n      'code', 'CODE_UNAVAILABLE',\n      'message', 'Kodi nuk është i vlefshëm. Kërko kod të ri.'\n    );\n  END IF;\n\n  v_now := clock_timestamp();\n\n  IF v_challenge.consumed_at IS NOT NULL\n     OR v_challenge.expires_at <= v_now\n     OR v_challenge.delivery_status <> 'sent' THEN\n    RETURN jsonb_build_object(\n      'ok', false,\n      'code', 'CODE_UNAVAILABLE',\n      'message', 'Kodi ka skaduar ose nuk është më i vlefshëm. Kërko kod të ri.'\n    );\n  END IF;\n\n  IF v_challenge.attempts >= 5 THEN\n    RETURN jsonb_build_object(\n      'ok', false,\n      'code', 'ATTEMPTS_EXCEEDED',\n      'message', 'Ke arritur kufirin e tentimeve. Kërko kod të ri.'\n    );\n  END IF;\n\n  v_matches :=\n    crypt(p_code, v_challenge.code_hash)\n    = v_challenge.code_hash;\n\n  v_now := clock_timestamp();\n\n  IF v_challenge.expires_at <= v_now THEN\n    RETURN jsonb_build_object(\n      'ok', false,\n      'code', 'CODE_UNAVAILABLE',\n      'message', 'Kodi ka skaduar. Kërko kod të ri.'\n    );\n  END IF;\n\n  IF v_matches IS NOT TRUE THEN\n    UPDATE public.taxi_auth_challenges c\n    SET attempts = c.attempts + 1\n    WHERE c.challenge_id = p_challenge_id\n    RETURNING c.attempts INTO v_attempts;\n\n    RETURN jsonb_build_object(\n      'ok', false,\n      'code', CASE\n        WHEN v_attempts >= 5 THEN 'ATTEMPTS_EXCEEDED'\n        ELSE 'INVALID_CODE'\n      END,\n      'attemptsRemaining', 5 - v_attempts,\n      'message', CASE\n        WHEN v_attempts >= 5\n          THEN 'Ke arritur kufirin e tentimeve. Kërko kod të ri.'\n        ELSE 'Kodi nuk është i saktë. Kontrolloje dhe provo përsëri.'\n      END\n    );\n  END IF;\n\n  v_token := encode(gen_random_bytes(32), 'hex');\n  v_expires := v_now + INTERVAL '4 hours';\n\n  UPDATE public.taxi_auth_challenges c\n  SET consumed_at = v_now\n  WHERE c.challenge_id = p_challenge_id;\n\n  INSERT INTO public.taxi_auth_sessions (\n    token_hash,\n    challenge_id,\n    actor_id,\n    role,\n    email,\n    created_at,\n    expires_at\n  )\n  VALUES (\n    encode(digest(v_token, 'sha256'), 'hex'),\n    v_challenge.challenge_id,\n    v_challenge.actor_id,\n    v_challenge.role,\n    v_challenge.email,\n    v_now,\n    v_expires\n  );\n\n  RETURN jsonb_build_object(\n    'ok', true,\n    'code', 'VERIFIED',\n    'role', v_challenge.role,\n    'sessionToken', v_token,\n    'expiresAt', v_expires,\n    'message', 'Hyrja u konfirmua.'\n  );\nEND;\n$$;\n\nSELECT to_regprocedure(\n  'public.taxi_verify_auth_code(uuid,text)'\n) IS NOT NULL AS verification_function_ready;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        -80,
+        576
+      ],
+      "id": "ce6090eb-611a-47c7-8dc5-998b32353d4d",
+      "name": "Krijo funksionin e verifikimit",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT public.taxi_verify_auth_code(\n  $1::UUID,\n  $2::TEXT\n) AS result;",
+        "options": {
+          "queryReplacement": "={{ [\n  $json.challengeId,\n  $json.code\n] }}"
+        }
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.7,
+      "position": [
+        320,
+        240
+      ],
+      "id": "ef7422e2-388f-4179-91a5-d06765c24094",
+      "name": "Verifiko kodin dhe krijo sesionin",
+      "credentials": {
+        "postgres": {
+          "id": "Id7hgCXJzaN1cbFO",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.result }}",
+        "options": {
+          "responseCode": "={{ $json.result.ok === true ? 200 : ($json.result.code === 'ATTEMPTS_EXCEEDED' ? 429 : 401) }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        496,
+        240
+      ],
+      "id": "850dc077-3733-4f51-9078-37a5c62dc0b9",
+      "name": "Kthe rezultatin e verifikimit"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Merr kërkesën e kodit dhe vendos": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo kërkesën e verifikimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo kërkesën e verifikimit": {
+      "main": [
+        [
+          {
+            "node": "Kërkesa e verifikimit është e vlefshme?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërkesa e verifikimit është e vlefshme?": {
+      "main": [
+        [
+          {
+            "node": "Roli është klient?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo kërkesën e verifikimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roli është klient?": {
+      "main": [
+        [
+          {
+            "node": "Kërko klientin për verifikim",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Kërko shoferin për verifikim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërko klientin për verifikim": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo llogarinë për kodin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kërko shoferin për verifikim": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo llogarinë për kodin",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo llogarinë për kodin": {
+      "main": [
+        [
+          {
+            "node": "Lejo dërgimin e kodit?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lejo dërgimin e kodit?": {
+      "main": [
+        [
+          {
+            "node": "Gjenero kodin e verifikimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto pengesën në verifikim",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gjenero kodin e verifikimit": {
+      "main": [
+        [
+          {
+            "node": "Regjistro kodin e verifikimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regjistro kodin e verifikimit": {
+      "main": [
+        [
+          {
+            "node": "Kodi u krijua?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kodi u krijua?": {
+      "main": [
+        [
+          {
+            "node": "Dërgo kodin e verifikimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto kufirin e kodeve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dërgo kodin e verifikimit": {
+      "main": [
+        [
+          {
+            "node": "Regjistro dërgimin e kodit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Shëno dërgimin e dështuar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Regjistro dërgimin e kodit": {
+      "main": [
+        [
+          {
+            "node": "Dërgimi u regjistrua?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Dërgimi u regjistrua?": {
+      "main": [
+        [
+          {
+            "node": "Kthe konfirmimin e dërgimit",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Njofto dështimin e dërgimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Shëno dërgimin e dështuar": {
+      "main": [
+        [
+          {
+            "node": "Njofto dështimin e dërgimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merr kodin për verifikim": {
+      "main": [
+        [
+          {
+            "node": "Kontrollo formatin e kodit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Kontrollo formatin e kodit": {
+      "main": [
+        [
+          {
+            "node": "Formati i kodit është i vlefshëm?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formati i kodit është i vlefshëm?": {
+      "main": [
+        [
+          {
+            "node": "Verifiko kodin dhe krijo sesionin",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Refuzo formatin e kodit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Krijo funksionin e verifikimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifiko kodin dhe krijo sesionin": {
+      "main": [
+        [
+          {
+            "node": "Kthe rezultatin e verifikimit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "115216d3-6ad0-46c3-bbdc-ad176d5ac2cf",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"
+  },
+  "nodeGroups": [],
+  "id": "w0IZ5f0m0zGguPxn",
+  "tags": []
+}

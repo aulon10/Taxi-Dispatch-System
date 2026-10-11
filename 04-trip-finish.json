@@ -311,7 +311,7 @@
     {
       "parameters": {
         "respondWith": "text",
-        "responseBody": "={{ (() => {\n  const record = $('Lexo udhëtimin për fillim').first().json;\n  const trip = record.fields ?? record;\n  const request = $('Kontrollo kërkesën e fillimit').first().json;\n\n  const escape = value => String(value ?? '').replace(\n    /[&<>\"']/g,\n    char => ({\n      '&': '&amp;',\n      '<': '&lt;',\n      '>': '&gt;',\n      '\"': '&quot;',\n      \"'\": '&#39;'\n    }[char])\n  );\n\n  return `<!doctype html>\n<html lang=\"sq\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Përfundimi i udhëtimit</title>\n</head>\n<body style=\"font-family:Arial,sans-serif;max-width:520px;margin:40px auto;padding:20px\">\n  <h2>A e ke përfunduar udhëtimin?</h2>\n  <p>Nisja: ${escape(trip['Lokacioni i marrjes'])}</p>\n  <p>Destinacioni: ${escape(trip.Destinacioni)}</p>\n  <form method=\"POST\"\n    action=\"https://aulon10.app.n8n.cloud/webhook-test/taxi-trip-finish-response\">\n    <input type=\"hidden\" name=\"token\" value=\"${escape(request.token)}\">\n    <button type=\"submit\" name=\"decision\" value=\"PO\">PO, e kam përfunduar</button>\n    <button type=\"submit\" name=\"decision\" value=\"JO\">JO, ende jo</button>\n  </form>\n</body>\n</html>`;\n})() }}",
+        "responseBody": "={{ (() => {\n  const record = $('Lexo udhëtimin për fillim').first().json;\n  const trip = record.fields ?? record;\n  const request = $('Kontrollo kërkesën e fillimit').first().json;\n\n  const escape = value => String(value ?? '').replace(\n    /[&<>\"']/g,\n    char => ({\n      '&': '&amp;',\n      '<': '&lt;',\n      '>': '&gt;',\n      '\"': '&quot;',\n      \"'\": '&#39;'\n    }[char])\n  );\n\n  return `<!doctype html>\n<html lang=\"sq\">\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n  <title>Përfundimi i udhëtimit</title>\n</head>\n<body style=\"font-family:Arial,sans-serif;max-width:520px;margin:40px auto;padding:20px\">\n  <h2>A e ke përfunduar udhëtimin?</h2>\n  <p>Nisja: ${escape(trip['Lokacioni i marrjes'])}</p>\n  <p>Destinacioni: ${escape(trip.Destinacioni)}</p>\n  <form method=\"POST\"\n    action=\"https://aulon10.app.n8n.cloud/webhook/taxi-trip-finish-response\">\n    <input type=\"hidden\" name=\"token\" value=\"${escape(request.token)}\">\n    <button type=\"submit\" name=\"decision\" value=\"PO\">PO, e kam përfunduar</button>\n    <button type=\"submit\" name=\"decision\" value=\"JO\">JO, ende jo</button>\n  </form>\n</body>\n</html>`;\n})() }}",
         "options": {
           "responseCode": 200,
           "responseHeaders": {
@@ -1197,12 +1197,12 @@
       ]
     }
   },
-  "active": false,
+  "active": true,
   "settings": {
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "5017a0d3-5a20-4d1d-a82b-5f2a8b3539f1",
+  "versionId": "5f20bd69-2d40-4d03-8e92-3324de2a950c",
   "meta": {
     "instanceId": "fdcc2c891008c3f12c643a593cd374084693f70de712c9bd6df887a943e04db4"
   },
